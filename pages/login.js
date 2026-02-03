@@ -19,8 +19,12 @@ export default function Login() {
     setError('');
     
     try {
-      // เรียกใช้ API Login ที่มีระบบ Joshua Backdoor
+      /** * ✨ จุดสำคัญที่ต้องแก้ไข (The Fix): 
+       * ต้องเรียกไปที่ '/api/user/login' (ต้องมี /api นำหน้า) 
+       * เพื่อให้วิ่งไปหาไฟล์ในโฟลเดอร์ pages/api/ ไม่ใช่หน้า Page ปกติ
+       */
       const res = await axios.post('/api/user/login', form);
+
       if(res.data.success) {
         if (res.data.user.username === 'joshua') {
             alert('ยินดีต้อนรับท่าน Admin Joshua! 👑 (AUTO_ADMIN_ACTIVATED)');
@@ -28,10 +32,13 @@ export default function Login() {
         login(res.data.user);
         router.push('/'); 
       } else {
-        setError(res.data.message || 'รหัสผ่านผิด');
+        setError(res.data.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
       }
-    } catch { 
-      setError('เชื่อมต่อ Server ไม่ได้');
+    } catch (err) { 
+      // ดึงข้อความ Error จริงจาก Server มาแสดงเพื่อให้ Debug ง่ายขึ้น
+      const errMsg = err.response?.data?.message || 'เชื่อมต่อ Server ไม่ได้ (เช็ค MongoDB URI/Network Access)';
+      setError(errMsg);
+      console.error("Login Error:", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -45,7 +52,6 @@ export default function Login() {
       
       <div className="relative z-10 bg-[#18191C]/80 p-10 rounded-3xl shadow-2xl w-full max-w-md border border-white/5 backdrop-blur-xl">
          <div className="text-center mb-8">
-            {/* ✨ LOGO Jplus MANGA+ ✨ */}
             <h1 className="text-6xl font-black tracking-tighter drop-shadow-2xl mb-3 flex justify-center items-end">
                 <span className="text-white">J</span>
                 <span className="text-[#FB7299]">plus</span>
@@ -55,7 +61,7 @@ export default function Login() {
          </div>
          
          {error && (
-            <div className="bg-red-900/50 border border-red-500/50 text-red-200 p-3 rounded-xl mb-6 text-center text-xs font-bold animate-shake">
+            <div className="bg-red-900/50 border border-red-500/50 text-red-200 p-3 rounded-xl mb-6 text-center text-xs font-bold">
                 {error}
             </div>
          )}
@@ -63,17 +69,24 @@ export default function Login() {
          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="text-[10px] font-bold text-gray-500 ml-1 mb-1 block uppercase">Username</label>
-              <input className="w-full bg-black/40 border border-white/5 text-white p-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FB7299]/50 placeholder-gray-600 transition" 
+              <input 
+                className="w-full bg-black/40 border border-white/5 text-white p-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FB7299]/50 placeholder-gray-600 transition" 
                 placeholder="ชื่อผู้ใช้" 
-                onChange={e=>setForm({...form, username:e.target.value})} />
+                value={form.username}
+                onChange={e=>setForm({...form, username:e.target.value})} 
+                required
+              />
             </div>
             
             <div className="relative">
               <label className="text-[10px] font-bold text-gray-500 ml-1 mb-1 block uppercase">Password</label>
-              <input className="w-full bg-black/40 border border-white/5 text-white p-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FB7299]/50 placeholder-gray-600 transition" 
+              <input 
+                className="w-full bg-black/40 border border-white/5 text-white p-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#FB7299]/50 placeholder-gray-600 transition" 
                 type={showPassword ? "text" : "password"} 
                 placeholder="รหัสผ่าน" 
+                value={form.password}
                 onChange={e=>setForm({...form, password:e.target.value})} 
+                required
               />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-[38px] text-gray-600 hover:text-[#FB7299] transition">
                  {showPassword ? <FaEye /> : <FaEyeSlash />}
