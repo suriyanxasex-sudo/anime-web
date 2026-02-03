@@ -3,8 +3,7 @@
   "crons": [
     {
       "path": "/api/cron/auto?key=joshua7465",
-      "schedule": "0 0 * * *",
-      "description": "Jplus_Auto_Sync_Bot: รันวันละครั้งตอนเที่ยงคืน (Hobby Plan Standard)"
+      "schedule": "0 0 * * *"
     }
   ],
   "headers": [
