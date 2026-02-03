@@ -2,76 +2,71 @@ import dbConnect from '../../../lib/mongodb';
 import Anime from '../../../models/Anime';
 import axios from 'axios';
 
-// ฟังก์ชันหน่วงเวลา
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export default async function handler(req, res) {
-  // รหัสลับสั่งบอท
-  if (req.query.key !== 'joshua7465') return res.status(401).json({ message: 'Unauthorized' });
+  // รหัสลับ (ต้องตรงกับที่ตั้งไว้)
+  if (req.query.key !== 'joshua7465') {
+      return res.status(401).json({ message: 'Unauthorized' });
+  }
   
   await dbConnect();
 
   try {
-    // 🌍 เปลี่ยนแหล่งดึง: ใช้ "recent-episodes" เพื่อดึงตอนที่เพิ่งมาใหม่จากทั่วโลก
-    // นี่คือวิธีที่ใกล้เคียงคำว่า "ดึงจากทุกที่บนออนไลน์" มากที่สุดสำหรับ API ฟรี
-    const { data } = await axios.get('https://api.consumet.org/anime/gogoanime/recent-episodes');
-    
-    if (!data.results || data.results.length === 0) {
-       return res.status(500).json({ error: 'API ต้นทางไม่ส่งข้อมูล (ลองใหม่อีกครั้ง)' });
+    // 🌍 1. ดูดข้อมูลจาก Jikan API (MyAnimeList) - แหล่งที่ใหญ่ที่สุดในโลก
+    // ดึง "อนิเมะยอดฮิตที่กำลังฉาย" (Top Airing)
+    const response = await axios.get('https://api.jikan.moe/v4/top/anime?filter=airing&limit=10');
+    const data = response.data.data;
+
+    if (!data || data.length === 0) {
+       return res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลได้' });
     }
 
-    // ดึงเพิ่มขึ้นเป็น 10 เรื่อง (ระวัง Vercel ตัดถ้าดึงเยอะเกินไป)
-    const newItems = data.results.slice(0, 10); 
     let addedCount = 0;
 
-    for (const item of newItems) {
+    // 2. วนลูปบันทึกลง Database
+    for (const item of data) {
       // เช็คว่ามีเรื่องนี้หรือยัง
       const exists = await Anime.findOne({ title: item.title });
       
       if (!exists) {
-        await sleep(1500); // พัก 1.5 วิ (เพื่อไม่ให้โดนบล็อก)
+        // สร้างตอน (Episodes) จำลองขึ้นมา (เพราะ MAL ไม่แจกลิงก์ดู)
+        // เราจะใช้ระบบ "Smart Search" เพื่อหาคลิปดูได้จาก YouTube
+        const episodes = [];
+        const totalEp = item.episodes || 12; // ถ้าไม่บอกจำนวนตอน ให้สมมติว่ามี 12 ตอน
 
-        try {
-          // ดึงรายละเอียดลึก
-          const detailRes = await axios.get(`https://api.consumet.org/anime/gogoanime/info/${item.id}`);
-          const details = detailRes.data;
-
-          if (!details.episodes || details.episodes.length === 0) continue; 
-
-          // แปลงข้อมูล
-          const episodes = details.episodes.map(ep => ({
-            number: ep.number,
-            title: `ตอนที่ ${ep.number}`,
-            servers: [
-              {
-                name: "Server หลัก",
-                url: `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(item.title + ' ep ' + ep.number)}`,
-                quality: "720p",
-                isPremium: false
-              }
-            ]
-          }));
-
-          // บันทึก
-          await Anime.create({
-            title: details.title,
-            imageUrl: details.image,
-            synopsis: details.description || 'อนิเมะใหม่ล่าสุด',
-            category: details.genres?.[0] || 'New',
-            episodes: episodes
-          });
-          
-          addedCount++;
-          console.log(`✅ เพิ่มเรื่องใหม่: ${item.title}`);
-
-        } catch (err) {
-          console.error(`ข้าม: ${item.title}`);
-          continue;
+        for (let i = 1; i <= totalEp; i++) {
+            if (i > 12) break; // เอาแค่ 12 ตอนพอ เดี๋ยว DB เต็ม
+            episodes.push({
+                number: i,
+                title: `ตอนที่ ${i}`,
+                servers: [
+                    {
+                        name: "Server YouTube (Official/Fan)",
+                        // สูตรโกง: ค้นหาชื่อเรื่อง + ตอน ใน YouTube แบบฝัง
+                        url: `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(item.title + ' episode ' + i + ' eng sub')}`,
+                        quality: "720p", 
+                        isPremium: false
+                    }
+                ]
+            });
         }
+
+        // บันทึกลง Database
+        await Anime.create({
+            title: item.title,
+            imageUrl: item.images.jpg.large_image_url, // รูปชัดระดับ HD
+            synopsis: item.synopsis || 'ไม่มีเรื่องย่อ',
+            category: item.genres[0]?.name || 'Anime',
+            episodes: episodes
+        });
+        
+        addedCount++;
       }
     }
     
-    res.json({ success: true, message: `ดูดอนิเมะใหม่สำเร็จ ${addedCount} เรื่อง!` });
+    res.json({ 
+        success: true, 
+        message: `✅ ดูดอนิเมะจากทั่วโลกสำเร็จ ${addedCount} เรื่อง! (รีเฟรชหน้าเว็บได้เลย)` 
+    });
 
   } catch (error) {
     res.status(500).json({ error: error.message });
