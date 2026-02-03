@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { FaEye, FaEyeSlash, FaUserPlus, FaArrowLeft } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaUserPlus, FaArrowLeft, FaShieldAlt } from 'react-icons/fa';
 
 export default function Register() {
   const [form, setForm] = useState({username:'', password:''});
@@ -19,91 +19,85 @@ export default function Register() {
     setError('');
     
     try {
-      // เรียกใช้ API Register ที่เราอัปเกรดระบบรักษาความปลอดภัยไว้แล้ว
+      // INITIATING_SECURE_REGISTRATION_PROTOCOL
       const res = await axios.post('/api/user/register', form);
       if(res.data.success) {
-        // เมื่อสมัครสำเร็จ ให้ล็อกอินเข้าสู่ระบบ Jplus อัตโนมัติ
+        alert('SUCCESS: ยินดีต้อนรับสู่ Jplus MANGA+! 🚀');
         login(res.data.user);
         router.push('/');
-      } else { 
-        setError(res.data.message || 'ไม่สามารถสมัครสมาชิกได้'); 
       }
     } catch (err) { 
-      setError('ชื่อผู้ใช้นี้อาจถูกใช้งานแล้ว หรือเซิร์ฟเวอร์ขัดข้อง'); 
+      setError(err.response?.data?.message || 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว หรือระบบขัดข้อง'); 
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] relative overflow-hidden font-sans">
-      {/* Background Decor - สีฟ้าตัดชมพูสไตล์ Jplus */}
-      <div className="absolute top-[-15%] left-[-10%] w-[500px] h-[500px] bg-[#00A1D6]/5 rounded-full blur-[120px]"></div>
-      <div className="absolute bottom-[-15%] right-[-10%] w-[500px] h-[500px] bg-[#FB7299]/5 rounded-full blur-[120px]"></div>
+    <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6 relative overflow-hidden font-mono">
+      {/* Jplus Cinematic Background */}
+      <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-[#00A1D6]/10 rounded-full blur-[150px]"></div>
+      <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-[#FB7299]/10 rounded-full blur-[150px]"></div>
       
-      <div className="relative z-10 bg-[#18191C]/80 p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md border border-white/5 backdrop-blur-2xl">
+      <div className="relative z-10 bg-[#121212]/90 backdrop-blur-3xl p-12 rounded-[3.5rem] shadow-2xl w-full max-w-lg border border-white/5">
          
-         <div className="text-center mb-10">
-            {/* ✨ LOGO Jplus MANGA+ ✨ */}
-            <h1 className="text-5xl font-black tracking-tighter drop-shadow-2xl mb-3 flex justify-center items-end">
+         <div className="text-center mb-12">
+            <h1 className="text-6xl font-black italic tracking-tighter mb-4">
                 <span className="text-white">J</span>
                 <span className="text-[#FB7299]">plus</span>
-                <sup className="text-xs text-[#00A1D6] ml-1 mb-5 font-bold tracking-widest">+</sup>
+                <sup className="text-sm text-[#00A1D6] ml-1 font-black">+</sup>
             </h1>
-            <p className="text-gray-500 text-[10px] uppercase tracking-[0.3em] font-black">Join the elite readers</p>
+            <div className="flex items-center justify-center gap-2 text-gray-600 text-[9px] font-black uppercase tracking-[0.4em]">
+               <FaShieldAlt className="text-[#00A1D6]" /> Secure_Identity_Registration
+            </div>
          </div>
          
          {error && (
-            <div className="bg-red-900/40 border border-red-500/50 text-red-200 p-4 rounded-2xl mb-6 text-center text-xs font-bold animate-pulse">
+            <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-5 rounded-2xl mb-8 text-center text-[10px] font-black uppercase tracking-widest animate-shake">
                 {error}
             </div>
          )}
          
-         <form onSubmit={handleSubmit} className="space-y-6">
-           <div className="group">
-             <label className="text-[10px] font-black text-gray-600 ml-2 mb-2 block uppercase tracking-widest group-focus-within:text-[#00A1D6] transition">Choose Username</label>
-             <input className="w-full bg-black/40 border border-white/5 text-white p-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#00A1D6]/50 placeholder-gray-700 transition font-bold" 
-               placeholder="ตั้งชื่อผู้ใช้ของคุณ" 
-               onChange={e=>setForm({...form, username:e.target.value})} 
-               required 
-             />
-           </div>
-           
-           <div className="relative group">
-             <label className="text-[10px] font-black text-gray-600 ml-2 mb-2 block uppercase tracking-widest group-focus-within:text-[#00A1D6] transition">Create Password</label>
-             <input className="w-full bg-black/40 border border-white/5 text-white p-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#00A1D6]/50 placeholder-gray-700 transition font-bold" 
-               type={showPassword ? "text" : "password"} 
-               placeholder="ตั้งรหัสผ่านที่ปลอดภัย" 
-               onChange={e=>setForm({...form, password:e.target.value})} 
-               required 
-             />
-             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-[42px] text-gray-600 hover:text-[#00A1D6] transition">
-                {showPassword ? <FaEye /> : <FaEyeSlash />}
-             </button>
-           </div>
-           
-           <button 
-             disabled={isSubmitting}
-             className="w-full bg-gradient-to-r from-[#00A1D6] to-[#0076a1] text-white py-4 rounded-2xl font-black shadow-xl shadow-[#00A1D6]/20 hover:shadow-[#00A1D6]/40 hover:scale-[1.02] active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 uppercase text-sm tracking-widest"
-           >
-             {isSubmitting ? (
-               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-             ) : (
-               <>Start_Journey <FaUserPlus className="text-xs" /></>
-             )}
-           </button>
+         <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-gray-500 ml-4 uppercase tracking-[0.2em]">Identifier_Name</label>
+              <input className="w-full bg-black/60 border border-white/5 text-white p-5 rounded-3xl focus:ring-2 focus:ring-[#00A1D6] outline-none transition-all font-bold placeholder:text-gray-800" 
+                placeholder="USER_NAME_REQ" 
+                onChange={e=>setForm({...form, username:e.target.value})} 
+                required 
+              />
+            </div>
+            
+            <div className="space-y-2 relative">
+              <label className="text-[10px] font-black text-gray-500 ml-4 uppercase tracking-[0.2em]">Access_Key_Code</label>
+              <input className="w-full bg-black/60 border border-white/5 text-white p-5 rounded-3xl focus:ring-2 focus:ring-[#00A1D6] outline-none transition-all font-bold placeholder:text-gray-800" 
+                type={showPassword ? "text" : "password"} 
+                placeholder="PASSWORD_REQ" 
+                onChange={e=>setForm({...form, password:e.target.value})} 
+                required 
+              />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-6 top-[52px] text-gray-700 hover:text-white transition">
+                 {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+            </div>
+            
+            <button 
+              disabled={isSubmitting}
+              className="w-full bg-gradient-to-r from-[#00A1D6] to-[#0076a1] text-white py-6 rounded-3xl font-black shadow-2xl shadow-[#00A1D6]/20 hover:scale-[1.02] active:scale-95 transition-all duration-300 uppercase text-xs tracking-[0.3em]"
+            >
+              {isSubmitting ? (
+                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto"></div>
+              ) : (
+                <span className="flex items-center justify-center gap-3">Initialize_Profile <FaUserPlus /></span>
+              )}
+            </button>
          </form>
          
-         <div className="mt-10 text-center">
-           <Link href="/login" className="text-gray-600 hover:text-white transition text-[11px] font-bold uppercase tracking-widest flex items-center justify-center gap-2">
-             <FaArrowLeft className="text-[10px]" /> Already a member? Sign In
-           </Link>
+         <div className="mt-12 pt-8 border-t border-white/5 text-center">
+            <Link href="/login" className="text-gray-600 hover:text-[#00A1D6] transition text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 italic">
+              <FaArrowLeft /> [ ALREADY_REGISTERED?_RETURN_TO_LOGIN ]
+            </Link>
          </div>
-      </div>
-      
-      {/* Footer Note */}
-      <div className="absolute bottom-6 w-full text-center">
-         <p className="text-[9px] text-gray-800 uppercase font-black tracking-[0.5em]">Secure Registration System v2.0</p>
       </div>
     </div>
   );

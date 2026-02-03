@@ -1,40 +1,100 @@
 import dbConnect from '../../../lib/mongodb';
-import Anime from '../../../models/Anime';
+import Manga from '../../../models/Manga'; // เปลี่ยนจาก Anime เป็น Manga ตาม Schema ใหม่ที่อัปเกรดไป
+
+/**
+ * JPLUS_MANGA_CORE_API v2.5
+ * พัฒนาโดย: JOSHUA_MAYOE (Admin Overlord)
+ * วัตถุประสงค์: ระบบจัดการข้อมูลมังงะส่วนกลาง รองรับการค้นหา กรองข้อมูล และการเพิ่มข้อมูลระดับสูง
+ */
 
 export default async function handler(req, res) {
-  await dbConnect();
-  
+  const startTime = Date.now();
+  await dbConnect(); // เชื่อมต่อฐานข้อมูล MongoDB Atlas
+
+  // --- [GET] SEARCH & FILTER PROTOCOL ---
   if (req.method === 'GET') {
     try {
-      const { search, category } = req.query;
+      const { search, category, limit = 30, page = 1, sort = 'latest' } = req.query;
       let query = {};
       
-      // ระบบค้นหาชื่อเรื่อง
+      // 1. Advanced Search Logic: ค้นหาจากชื่อเรื่อง (Regex Case-Insensitive)
       if (search) {
-        query.title = { $regex: search, $options: 'i' };
+        query.$or = [
+          { title: { $regex: search, $options: 'i' } },
+          { synopsis: { $regex: search, $options: 'i' } } // ค้นหาจากเรื่องย่อด้วยเพื่อให้เจอผลลัพธ์ที่กว้างขึ้น
+        ];
       }
       
-      // ระบบกรองตามหมวดหมู่ (เผื่อหน้าแรกมีการกดเลือกหมวด)
+      // 2. Category Filtering: กรองตามหมวดหมู่
       if (category && category !== 'All') {
-        query.category = category;
+        query.genres = category; // ใช้ genres ตามโมเดลใหม่ที่เราแก้
       }
 
-      // ดึงข้อมูลมังงะล่าสุด 30 เรื่อง (เพิ่มจาก 20 เป็น 30 ให้ดูจุใจ)
-      const animes = await Anime.find(query)
-        .sort({ createdAt: -1 }) 
-        .limit(30);
+      // 3. Sorting Logic: ระบบเรียงลำดับ
+      let sortQuery = { createdAt: -1 };
+      if (sort === 'popular') sortQuery = { score: -1 };
+      if (sort === 'oldest') sortQuery = { createdAt: 1 };
 
-      res.status(200).json(animes);
+      console.log(`[QUERY] Executing search for: "${search || 'ALL'}" in category: "${category || 'ALL'}"`);
+
+      // 4. Execution with Pagination: ดึงข้อมูลแบบแบ่งหน้าเพื่อ Performance ที่ดีที่สุด
+      const skip = (parseInt(page) - 1) * parseInt(limit);
+      
+      const mangas = await Manga.find(query)
+        .sort(sortQuery)
+        .limit(parseInt(limit))
+        .skip(skip);
+
+      const totalItems = await Manga.countDocuments(query);
+      const executionTime = Date.now() - startTime;
+
+      return res.status(200).json({
+        success: true,
+        execution_time: `${executionTime}ms`,
+        total_results: totalItems,
+        total_pages: Math.ceil(totalItems / limit),
+        current_page: parseInt(page),
+        data: mangas
+      });
+
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      console.error(`[GET_ERR] ${error.message}`);
+      return res.status(500).json({ success: false, message: 'DATABASE_QUERY_FAILURE', error: error.message });
     }
-  } else if (req.method === 'POST') {
-    // ส่วนนี้สำหรับ Admin Joshua เผื่ออยากเพิ่มมังงะเองด้วยมือ
+  } 
+  
+  // --- [POST] ADMIN_UPLOAD_PROTOCOL ---
+  else if (req.method === 'POST') {
     try {
-      const anime = await Anime.create(req.body);
-      res.status(201).json(anime);
+      // 🔐 ระบบตรวจสอบสิทธิ์เบื้องต้น: เฉพาะ Admin Joshua เท่านั้นที่ได้รับอนุญาต
+      const { adminKey } = req.body;
+      if (adminKey !== 'joshua7465') {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'ACCESS_DENIED: โปรโตคอลนี้อนุญาตเฉพาะ Admin Joshua (7465) เท่านั้น' 
+        });
+      }
+
+      // สร้างข้อมูลมังงะใหม่ (Manual Entry)
+      const newManga = await Manga.create({
+        ...req.body,
+        lastUpdated: new Date()
+      });
+
+      console.log(`[ADMIN_ACTION] Joshua manually created: ${newManga.title}`);
+      
+      return res.status(201).json({
+        success: true,
+        message: 'MANUAL_ENTRY_SUCCESSFUL',
+        data: newManga
+      });
+
     } catch (error) {
-      res.status(400).json({ success: false, error: error.message });
+      console.error(`[POST_ERR] ${error.message}`);
+      return res.status(400).json({ success: false, message: 'WRITE_FAILURE', error: error.message });
     }
   }
+
+  // ป้องกัน Method ที่ไม่ได้รับอนุญาต
+  return res.status(405).json({ message: `METHOD_${req.method}_NOT_ALLOWED` });
 }

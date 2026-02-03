@@ -1,3 +1,55 @@
-node_modules 
-.next 
-.env.local 
+# =================================================================
+# 🛡️ JPLUS_MANGA_SECURITY_SHIELD - .gitignore v2.5
+# =================================================================
+
+# 1. [DEPENDENCIES] - ห้ามเอา Folder Library ขึ้นเด็ดขาด (มันหนัก)
+node_modules/
+jspm_packages/
+
+# 2. [NEXT.js_BUILD_OUTPUT] - ไฟล์ประมวลผลของ Next.js
+.next/
+out/
+build/
+
+# 3. [ENVIRONMENT_VARIABLES] - ⚠️ ความลับระดับสูงสุด (ห้ามพลาด!)
+# ห้ามเอาไฟล์กุญแจ Database และ API Key ขึ้น GitHub เด็ดขาด
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 4. [LOG_FILES] - ไฟล์บันทึก Error ต่างๆ
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+logs/
+*.log
+
+# 5. [OS_GARBAGE] - ไฟล์ขยะจากระบบปฏิบัติการ
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# 6. [IDE_CONFIG] - ไฟล์การตั้งค่าของ Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.project
+.settings/
+
+# 7. [TESTING/COVERAGE] - ไฟล์จากการรัน Test
+coverage/
+.nyc_output/
+
+# 8. [VERCEL] - ข้อมูลการ Deploy (ถ้ามี)
+.vercel
+
+# =================================================================
+# END_OF_SHIELD_PROTOCOL
+# =================================================================

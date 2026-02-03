@@ -2,7 +2,77 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  background-color: #F4F5F7;
-  color: #18191C;
+/* 🌑 JPLUS_GLOBAL_OVERRIDE */
+@layer base {
+  body {
+    /* เปลี่ยนจากสีเทาขาว #F4F5F7 เป็น Deep Black เพื่อความดุดัน */
+    @apply bg-[#0a0a0a] text-white font-sans antialiased;
+    scroll-behavior: smooth;
+  }
+
+  /* ระบบการเลือกข้อความ (Custom Selection) */
+  ::selection {
+    @apply bg-[#FB7299]/30 text-[#FB7299];
+  }
+}
+
+/* 🚀 CUSTOM_SCROLLBAR (สำหรับนักอ่านสาย Hardcore) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 10px;
+  border: 1px solid #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #FB7299; /* สีชมพูเวลาเอาเมาส์ไปวาง */
+  box-shadow: 0 0 10px rgba(251, 114, 153, 0.5);
+}
+
+/* ⚡ JPLUS_UI_COMPONENTS */
+@layer components {
+  /* คลาสสำหรับการทำ Glow Effect ให้กับปุ่มหรือรูปภาพ */
+  .jplus-glow {
+    @apply shadow-[0_0_20px_rgba(251,114,153,0.15)] hover:shadow-[0_0_30px_rgba(251,114,153,0.3)] transition-all duration-500;
+  }
+
+  /* แถบโหลดด้านบนเวลาเปลี่ยนหน้า */
+  .top-loader {
+    @apply fixed top-0 left-0 h-[2px] bg-gradient-to-r from-[#FB7299] to-[#00A1D6] z-[9999] animate-pulse;
+  }
+}
+
+/* 🪄 ANIMATION_SYSTEM (มหาโค้ดสำหรับการเคลื่อนไหว) */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.animate-shake {
+  animation: shake 0.2s ease-in-out 0s 2;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* 📖 READER_SPECIFIC_STYLE (ปรับหน้าอ่านมังงะให้เนียนตา) */
+.manga-page-container img {
+  @apply mx-auto block max-w-full h-auto select-none pointer-events-none;
+  -webkit-user-drag: none;
 }

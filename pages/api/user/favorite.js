@@ -1,51 +1,45 @@
 import dbConnect from '../../../lib/mongodb';
 import User from '../../../models/User';
-import Anime from '../../../models/Anime'; // ต้อง import มาเพื่อให้ populate ทำงานได้
+import Manga from '../../../models/Manga';
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
-  
+  if (req.method !== 'POST') return res.status(405).json({ success: false, message: 'METHOD_NOT_ALLOWED' });
+
+  const { username, animeId } = req.body;
+  if (!username) return res.status(400).json({ success: false, message: 'IDENTIFIER_REQUIRED' });
+
   await dbConnect();
-  
+
   try {
-    const { username, animeId } = req.body;
-    
-    // 1. หา User ก่อน
-    const user = await User.findOne({ username });
-    if (!user) return res.status(404).json({ success: false, message: 'ไม่พบผู้ใช้' });
+    const user = await User.findOne({ username: username.toLowerCase() });
+    if (!user) return res.status(404).json({ success: false, message: 'USER_NOT_FOUND' });
 
-    // 2. ตรวจสอบสถานะ (Toggle Logic)
-    const targetId = animeId.toString();
-    const isFav = user.favorites.some(id => id.toString() === targetId);
-    
-    if (isFav) {
-      // ถ้ามีอยู่แล้วให้ "เอาออก"
-      await User.updateOne(
-        { username },
-        { $pull: { favorites: animeId } }
-      );
-    } else {
-      // ถ้ายังไม่มีให้ "เพิ่มเข้า"
-      await User.updateOne(
-        { username },
-        { $addToSet: { favorites: animeId } } // $addToSet ป้องกันข้อมูลซ้ำ
-      );
+    // กรณีที่ 1: ดึงข้อมูลรายการโปรดทั้งหมด (Populate ข้อมูลมังงะจาก Model Manga)
+    if (!animeId) {
+      // ดึง User และขยายข้อมูล (Populate) จาก ID ใน array favorites ให้เป็นข้อมูลมังงะตัวเต็ม
+      const userWithFavs = await User.findOne({ username: username.toLowerCase() })
+                                     .populate('favorites'); 
+      
+      console.log(`[FAV_SYSTEM] Fetched ${userWithFavs.favorites.length} items for ${username}`);
+      return res.status(200).json({ success: true, favorites: userWithFavs.favorites });
     }
-    
-    // 3. ดึงข้อมูลใหม่แบบ Populate เพื่อส่งกลับไปแสดงผลหน้าบ้านทันที
-    // เราต้องดึงข้อมูลจากโมเดล Anime (ที่เราใช้เก็บมังงะ) มาโชว์รูปและชื่อเรื่อง
-    const updatedUser = await User.findOne({ username }).populate({
-      path: 'favorites',
-      model: 'Anime' 
-    });
 
-    res.status(200).json({ 
-      success: true, 
-      isFavorite: !isFav, 
-      favorites: updatedUser.favorites 
-    });
+    // กรณีที่ 2: เพิ่มหรือลบรายการโปรด (Toggle System)
+    const isExist = user.favorites.includes(animeId);
+    if (isExist) {
+      // ถ้ามีอยู่แล้วให้ลบออก
+      user.favorites = user.favorites.filter(id => id.toString() !== animeId);
+      await user.save();
+      return res.status(200).json({ success: true, message: 'REMOVED_FROM_COLLECTION', action: 'remove' });
+    } else {
+      // ถ้ายังไม่มีให้เพิ่มเข้าไป
+      user.favorites.push(animeId);
+      await user.save();
+      return res.status(200).json({ success: true, message: 'ADDED_TO_COLLECTION', action: 'add' });
+    }
 
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error(`[CRITICAL_FAV_ERR] ${error.message}`);
+    return res.status(500).json({ success: false, message: 'DATABASE_ERROR', error: error.message });
   }
 }
