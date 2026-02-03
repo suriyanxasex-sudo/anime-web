@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import Navbar from '../components/Navbar';
 import axios from 'axios';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
-import { FaCrown, FaSearch, FaFire, FaPlay, FaFilter } from 'react-icons/fa';
+import { FaCrown, FaSearch, FaFire, FaPlay, FaUserCircle } from 'react-icons/fa';
 
-// Component กล่องโหลดเท่ๆ (Skeleton)
+// Component กล่องโหลด (Skeleton)
 const SkeletonCard = () => (
   <div className="bg-[#2A2B2F] rounded-xl overflow-hidden shadow animate-pulse">
     <div className="aspect-[3/4] bg-gray-700/50"></div>
@@ -23,43 +22,64 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [isAutoRunning, setIsAutoRunning] = useState(false); // สถานะบอท
+
   const router = useRouter();
   const { user, login, loading: authLoading } = useAuth();
 
-  // หมวดหมู่ที่มีให้เลือก
   const categories = ['All', 'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy'];
 
+  // 1. เช็ค Login
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
   }, [user, authLoading, router]);
 
+  // 2. โหลดข้อมูล + สั่งบอททำงานอัตโนมัติ
   useEffect(() => {
     if (user) {
         setLoading(true);
         axios.get('/api/animes').then(async (res) => {
-            setTopAnimes(res.data.slice(0, 5));
+            setTopAnimes(res.data.slice(0, 5)); // เอา 5 เรื่องแรกทำ Top 10
             setAnimes(res.data);
             setLoading(false);
 
+            // --- AUTO BOT TRIGGER ---
+            // ถ้า Database ว่างเปล่า ให้เรียกบอททำงานทันที
             if (res.data.length === 0) {
-                await axios.get('/api/cron/auto?key=joshua7465');
-                window.location.reload(); 
+                console.log("Database ว่าง! กำลังเรียกบอท...");
+                setIsAutoRunning(true);
+                try {
+                    await axios.get('/api/cron/auto?key=joshua7465');
+                    window.location.reload(); // โหลดหน้าใหม่เพื่อให้หนังขึ้น
+                } catch (err) {
+                    console.error("บอททำงานพลาด:", err);
+                    setIsAutoRunning(false);
+                }
             }
+            // ------------------------
         });
     }
   }, [user]);
 
+  // --- ฟังก์ชันสมัคร VIP (แก้แล้ว: ไม่เด้งหลุด) ---
   const handleUpgrade = async () => {
     if(confirm('ยืนยันสมัคร VIP ฟรี?')) {
-      const res = await axios.post('/api/user/upgrade', { username: user.username });
-      if(res.data.success) {
-        alert('คุณเป็น VIP แล้ว! 💎');
-        login(res.data.user);
+      try {
+        const res = await axios.post('/api/user/upgrade', { username: user.username });
+        if(res.data.success) {
+          alert('ยินดีด้วย! คุณเป็น VIP แล้ว 💎');
+          
+          // จุดสำคัญ: รวมข้อมูล VIP ใหม่ เข้ากับข้อมูล User เดิม
+          // เพื่อไม่ให้ Token หาย (ป้องกันการเด้งไปหน้า Login)
+          login({ ...user, isPremium: true }); 
+        }
+      } catch (err) {
+        alert('เกิดข้อผิดพลาดในการสมัคร');
       }
     }
   }
 
-  // ระบบกรอง 2 ชั้น (ค้นหา + หมวดหมู่)
+  // ระบบกรองหนัง (ค้นหา + หมวดหมู่)
   const filteredAnimes = animes.filter(a => {
     const matchesSearch = a.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || (a.category && a.category.includes(selectedCategory));
@@ -70,11 +90,15 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#18191C] text-white pb-20 font-sans">
-      {/* Navbar ซ่อนไว้ หรือจะใส่กลับมาก็ได้ */}
       
-      {/* Header & Search */}
+      {/* --- Header (ค้นหา + โปรไฟล์) --- */}
       <div className="sticky top-0 z-50 bg-[#18191C]/95 backdrop-blur-sm p-4 shadow-md">
          <div className="max-w-7xl mx-auto flex items-center gap-4">
+            
+            {/* Logo */}
+            <div className="text-[#FB7299] font-bold text-xl hidden md:block">AnimeJosh</div>
+
+            {/* ช่องค้นหา */}
             <div className="flex-1 relative">
                 <FaSearch className="absolute left-3 top-3 text-gray-400" />
                 <input 
@@ -83,23 +107,31 @@ export default function Home() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#FB7299] to-[#00A1D6] p-[2px]">
-               <div className="w-full h-full bg-[#18191C] rounded-full flex items-center justify-center font-bold">
-                 {user.username[0].toUpperCase()}
-               </div>
-            </div>
+
+            {/* รูปโปรไฟล์ (คลิกเพื่อไปหน้า Edit Profile) */}
+            <Link href="/profile">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#FB7299] to-[#00A1D6] p-[2px] cursor-pointer hover:scale-110 transition">
+                   <div className="w-full h-full bg-[#18191C] rounded-full flex items-center justify-center font-bold overflow-hidden">
+                     {user.profilePic ? (
+                        <img src={user.profilePic} className="w-full h-full object-cover" onError={(e)=>{e.target.style.display='none'}} />
+                     ) : (
+                        <div className="text-white">{user.username[0].toUpperCase()}</div>
+                     )}
+                   </div>
+                </div>
+            </Link>
          </div>
-         
-         {/* Category Chips (แถบหมวดหมู่) */}
+
+         {/* แถบหมวดหมู่ (Category Chips) */}
          <div className="max-w-7xl mx-auto mt-4 flex gap-2 overflow-x-auto scrollbar-hide pb-2">
             {categories.map(cat => (
               <button 
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-1.5 rounded-full text-sm whitespace-nowrap transition ${
+                className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
                   selectedCategory === cat 
-                  ? 'bg-[#FB7299] text-white font-bold shadow-lg' 
-                  : 'bg-[#2A2B2F] text-gray-300 hover:bg-gray-700'
+                  ? 'bg-[#FB7299] text-white shadow-lg' 
+                  : 'bg-[#2A2B2F] text-gray-400 hover:bg-gray-700'
                 }`}
               >
                 {cat}
@@ -110,7 +142,15 @@ export default function Home() {
 
       <div className="max-w-7xl mx-auto p-4 space-y-8">
         
-        {/* Banner VIP */}
+        {/* --- แจ้งเตือนบอททำงาน --- */}
+        {isAutoRunning && (
+            <div className="bg-[#2A2B2F] border border-[#FB7299] p-6 rounded-xl text-center animate-pulse">
+                <h2 className="text-xl font-bold text-[#FB7299] mb-2">🚀 กำลังจูนสัญญาณดาวเทียม...</h2>
+                <p className="text-gray-400 text-sm">ระบบตรวจพบว่าไม่มีข้อมูล จึงกำลังไปดูดอนิเมะมาให้ครับ รอสักครู่...</p>
+            </div>
+        )}
+
+        {/* --- Premium Banner (แสดงเฉพาะคนยังไม่ VIP) --- */}
         {!user.isPremium ? (
            <div className="bg-gradient-to-r from-[#F5D020] to-[#F53803] rounded-2xl p-6 relative overflow-hidden shadow-lg hover:scale-[1.01] transition cursor-pointer" onClick={handleUpgrade}>
               <div className="relative z-10 flex justify-between items-center">
@@ -123,14 +163,14 @@ export default function Home() {
               <FaCrown className="absolute -bottom-4 -right-4 text-white/20 text-8xl rotate-12" />
            </div>
         ) : (
-           <div className="bg-[#2A2B2F] border border-[#00A1D6]/30 rounded-xl p-4 flex items-center gap-3">
+           <div className="bg-[#2A2B2F] border border-[#00A1D6]/30 rounded-xl p-3 flex items-center gap-3">
               <FaCrown className="text-[#00A1D6] text-xl" />
               <div><h2 className="font-bold text-sm text-[#00A1D6]">VIP Member Active</h2></div>
            </div>
         )}
 
-        {/* Top 10 (แสดงเฉพาะตอนไม่ได้ค้นหา) */}
-        {!searchTerm && selectedCategory === 'All' && !loading && (
+        {/* --- Top 10 Ranking (แสดงเมื่อไม่ได้ค้นหา) --- */}
+        {!searchTerm && selectedCategory === 'All' && !loading && !isAutoRunning && (
           <div>
             <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-[#FB7299]"><FaFire /> มาแรงวันนี้</h2>
             <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-hide">
@@ -139,7 +179,7 @@ export default function Home() {
                     <div className="min-w-[130px] relative group cursor-pointer">
                        <div className="aspect-[3/4] rounded-lg overflow-hidden relative">
                           <img src={a.imageUrl} className="w-full h-full object-cover" />
-                          <div className="absolute top-0 left-0 bg-[#FB7299] text-white font-bold w-7 h-7 flex items-center justify-center rounded-br-lg shadow text-sm">
+                          <div className="absolute top-0 left-0 bg-[#FB7299] text-white font-bold w-8 h-8 flex items-center justify-center rounded-br-lg shadow text-lg">
                              {index + 1}
                           </div>
                        </div>
@@ -151,7 +191,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Main Grid */}
+        {/* --- Main Grid --- */}
         <div>
            <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-[#00A1D6]">
               <FaPlay /> {selectedCategory !== 'All' ? `${selectedCategory} Anime` : 'อัปเดตล่าสุด'}
@@ -159,10 +199,10 @@ export default function Home() {
            
            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
              {loading 
-               ? [...Array(10)].map((_,i) => <SkeletonCard key={i} />) // แสดง Skeleton ตอนโหลด
+               ? [...Array(10)].map((_,i) => <SkeletonCard key={i} />) 
                : filteredAnimes.map(a => (
                <Link key={a._id} href={`/watch/${a._id}`}>
-                 <div className="bg-[#2A2B2F] rounded-xl overflow-hidden shadow hover:shadow-xl transition cursor-pointer group">
+                 <div className="bg-[#2A2B2F] rounded-xl overflow-hidden shadow hover:shadow-xl transition cursor-pointer group hover:-translate-y-1">
                    <div className="aspect-[3/4] relative">
                       <img src={a.imageUrl} className="w-full h-full object-cover group-hover:opacity-80 transition" />
                       <div className="absolute bottom-1 right-1 bg-black/70 text-[10px] px-1.5 py-0.5 rounded text-white">
@@ -180,8 +220,10 @@ export default function Home() {
              ))}
            </div>
            
-           {!loading && filteredAnimes.length === 0 && (
-              <div className="text-center py-20 text-gray-500 text-sm">ไม่พบอนิเมะในหมวดนี้</div>
+           {!loading && !isAutoRunning && filteredAnimes.length === 0 && (
+              <div className="text-center py-20 text-gray-500 text-sm">
+                 ไม่พบอนิเมะในหมวดนี้
+              </div>
            )}
         </div>
       </div>

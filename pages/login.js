@@ -1,35 +1,63 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
-import Navbar from '../components/Navbar';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 
 export default function Login() {
   const [form, setForm] = useState({username:'', password:''});
   const { login } = useAuth();
   const [error, setError] = useState('');
+  const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const res = await axios.post('/api/auth/login', form);
-      if(res.data.success) login(res.data.user);
-    } catch { setError('ชื่อผู้ใช้หรือรหัสผ่านผิด'); }
+      if(res.data.success) {
+        login(res.data.user);
+        router.push('/'); 
+      } else {
+        setError(res.data.message || 'รหัสผ่านผิด');
+      }
+    } catch { setError('เชื่อมต่อ Server ไม่ได้ (เช็ค MONGODB_URI ใน Vercel)'); }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center bg-[#F4F5F7]">
-      <Navbar />
-      <div className="mt-20 w-full max-w-sm bg-white p-8 rounded-xl shadow-lg">
-         <h1 className="text-2xl font-bold text-center text-[#FB7299] mb-6">Login</h1>
-         {error && <div className="text-red-500 text-center mb-4 text-sm">{error}</div>}
+    // พื้นหลัง Unsplash (โหลดได้ชัวร์ 100%)
+    <div className="min-h-screen flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1541562232579-512a21360020?q=80&w=1920&auto=format&fit=crop')] bg-cover bg-center bg-no-repeat relative">
+      
+      {/* ฟิล์มดำบังพื้นหลัง 60% */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
+      
+      <div className="relative z-10 bg-white/10 p-8 rounded-2xl shadow-2xl w-full max-w-sm border border-white/20 backdrop-blur-md">
+         {/* เอา Navbar ออกแล้ว ไม่มีปุ่มค้นหาแน่นอน */}
+         <div className="text-center mb-6">
+            <h1 className="text-4xl font-extrabold text-[#FB7299] drop-shadow-md">AnimeJosh</h1>
+            <p className="text-gray-300 text-sm mt-1">ยินดีต้อนรับกลับมาครับ</p>
+         </div>
+         
+         {error && <div className="bg-red-500/80 text-white p-2 rounded mb-4 text-center text-sm">{error}</div>}
+
          <form onSubmit={handleSubmit} className="space-y-4">
-           <input className="w-full border p-2 rounded" placeholder="Username" onChange={e=>setForm({...form, username:e.target.value})} />
-           <input className="w-full border p-2 rounded" type="password" placeholder="Password" onChange={e=>setForm({...form, password:e.target.value})} />
-           <button className="w-full bg-[#FB7299] text-white py-2 rounded font-bold hover:bg-pink-600">Login</button>
+           <div>
+             <input className="w-full bg-black/50 border border-gray-500 text-white p-3 rounded-lg focus:outline-none focus:border-[#FB7299] placeholder-gray-400 transition" 
+               placeholder="ชื่อผู้ใช้" 
+               onChange={e=>setForm({...form, username:e.target.value})} />
+           </div>
+           <div>
+             <input className="w-full bg-black/50 border border-gray-500 text-white p-3 rounded-lg focus:outline-none focus:border-[#FB7299] placeholder-gray-400 transition" 
+               type="password" placeholder="รหัสผ่าน" 
+               onChange={e=>setForm({...form, password:e.target.value})} />
+           </div>
+           
+           <button className="w-full bg-gradient-to-r from-[#FB7299] to-[#FF5D87] text-white py-3 rounded-lg font-bold shadow-lg hover:shadow-[#FB7299]/50 hover:scale-105 transition duration-200">
+             เข้าสู่ระบบ
+           </button>
          </form>
-         <div className="mt-4 text-center text-sm">
-           ยังไม่มีบัญชี? <Link href="/register" className="text-[#00A1D6] font-bold">สมัครสมาชิก</Link>
+
+         <div className="mt-6 text-center text-sm text-gray-300">
+           ยังไม่มีบัญชี? <Link href="/register" className="text-[#00A1D6] font-bold hover:underline hover:text-white transition">สมัครสมาชิกที่นี่</Link>
          </div>
       </div>
     </div>
