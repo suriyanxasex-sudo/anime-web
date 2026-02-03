@@ -1,112 +1,95 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
-import { FaTerminal, FaRobot, FaExclamationTriangle, FaArrowLeft } from 'react-icons/fa';
+// แก้ไข Path ตรงนี้ให้ถอยหลัง 2 ขั้น เพื่อไปหา context
+import { useAuth } from '../../context/AuthContext'; 
+import { useRouter } from 'next/router';
 import Link from 'next/link';
+import { FaTerminal, FaRobot, FaHome, FaDatabase } from 'react-icons/fa';
 
-export default function Admin() {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
+export default function AdminDashboard() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const [status, setStatus] = useState('SYSTEM_READY');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // ระบบป้องกันคนนอกเข้า (เฉพาะ Joshua เท่านั้น)
+  useEffect(() => {
+    if (!loading) {
+       if (!user || user.username !== 'joshua') { 
+          router.push('/'); 
+       }
+    }
+  }, [user, loading, router]);
 
   const runBot = async () => {
-    if(!confirm('ยืนยันการรันบอทเพื่อดึงมังงะชุดใหม่?')) return;
-    
-    setLoading(true);
-    try { 
-        // เรียกใช้ API Cron ที่เราแก้ให้ดึงมังงะ/มังฮวา
-        const res = await axios.get('/api/cron/auto?key=joshua7465'); 
-        alert(`สำเร็จ: ${res.data.message}`); 
-    } 
-    catch(e) { 
-        const reason = e.response?.data?.error || e.message;
-        alert(`เกิดข้อผิดพลาด: ${reason}`); 
+    setIsProcessing(true);
+    setStatus('RUNNING_SCRAPER_BOT...');
+    try {
+        const res = await axios.get('/api/cron/auto?key=joshua7465');
+        setStatus(`SUCCESS: ${res.data.message}`);
+    } catch (err) {
+        setStatus('ERROR: ' + (err.response?.data?.error || err.message));
     }
-    setLoading(false);
+    setIsProcessing(false);
   };
 
-  // ตรวจสอบสิทธิ์ Admin (ชื่อ Joshua เท่านั้น)
-  if(user?.username !== 'joshua') return (
-    <div className="min-h-screen bg-[#18191C] flex flex-col items-center justify-center p-10 text-center">
-        <FaExclamationTriangle className="text-red-500 text-6xl mb-4" />
-        <h1 className="text-white font-bold text-2xl">Access Denied</h1>
-        <p className="text-gray-500 mt-2">เฉพาะ Joshua เท่านั้นที่มีสิทธิ์เข้าถึงหน้านี้</p>
-        <Link href="/"><button className="mt-6 text-[#FB7299] flex items-center gap-2"><FaArrowLeft /> กลับหน้าหลัก</button></Link>
-    </div>
-  );
+  const wipeDatabase = async () => {
+    if(!confirm('🚨 ยืนยันการล้างข้อมูลทั้งหมด?')) return;
+    setIsProcessing(true);
+    setStatus('WIPING_COLLECTION...');
+    try {
+        const res = await axios.post('/api/admin/wipe-data', { key: 'joshua7465' });
+        setStatus(`SUCCESS: ${res.data.message}`);
+    } catch (err) {
+        setStatus('ERROR: ' + err.message);
+    }
+    setIsProcessing(false);
+  };
+
+  if (loading || !user) return null;
 
   return (
-    <div className="min-h-screen bg-[#18191C] text-white font-sans">
-      <div className="max-w-4xl mx-auto p-6 md:p-20">
-        
-        <div className="flex items-center gap-4 mb-10">
-            <div className="bg-[#FB7299] p-3 rounded-xl shadow-lg shadow-[#FB7299]/20">
-                <FaTerminal className="text-2xl text-white" />
-            </div>
-            <div>
-                <h1 className="text-3xl font-extrabold tracking-tighter">Jplus <span className="text-[#FB7299]">Console</span></h1>
-                <p className="text-gray-500 text-sm">ระบบจัดการหลังบ้านสำหรับ Admin Joshua</p>
-            </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* กล่องควบคุมบอท */}
-            <div className="bg-[#2A2B2F] p-8 rounded-2xl border border-gray-800 shadow-xl">
-                <div className="flex items-center gap-3 mb-6">
-                    <FaRobot className="text-[#00A1D6] text-2xl" />
-                    <h2 className="text-xl font-bold">Manga Scraper Bot</h2>
-                </div>
-                
-                <p className="text-gray-400 text-sm mb-8 leading-relaxed">
-                    สั่งให้บอทวิ่งไปขูดข้อมูลมังงะ มังฮวา และมังงะเกาหลีจาก MangaReader 
-                    เพื่อนำมาอัปเดตลงในคลังข้อมูล Jplus ของเรา
-                </p>
-
-                <button 
-                    onClick={runBot} 
-                    disabled={loading} 
-                    className={`w-full py-4 rounded-xl font-bold text-lg transition-all active:scale-95 shadow-lg
-                    ${loading 
-                        ? 'bg-gray-600 cursor-not-allowed opacity-50' 
-                        : 'bg-gradient-to-r from-[#00A1D6] to-[#FB7299] hover:shadow-[#FB7299]/20 hover:brightness-110'}`}
-                >
-                    {loading ? (
-                        <span className="flex items-center justify-center gap-2">
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            กำลังประมวลผล...
-                        </span>
-                    ) : '🚀 START MANGA BOT'}
+    <div className="min-h-screen bg-black text-green-500 p-4 md:p-10 font-mono">
+       <div className="max-w-5xl mx-auto border-2 border-green-900 rounded-lg p-6 shadow-[0_0_20px_rgba(0,50,0,0.5)]">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-green-900 pb-4 gap-4">
+             <div className="flex items-center gap-3">
+                <FaTerminal className="text-3xl animate-pulse" />
+                <h1 className="text-2xl font-bold tracking-widest text-white">JPLUS_ADMIN_v2.0</h1>
+             </div>
+             <Link href="/">
+                <button className="flex items-center gap-2 text-green-700 hover:text-green-400 transition">
+                   <FaHome /> [EXIT_TO_SITE]
                 </button>
-            </div>
+             </Link>
+          </div>
 
-            {/* ส่วนข้อมูลระบบ (Stat) */}
-            <div className="bg-[#2A2B2F] p-8 rounded-2xl border border-gray-800 shadow-xl flex flex-col justify-center">
-                <h3 className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-2">System Status</h3>
-                <div className="flex items-end gap-2">
-                    <span className="text-4xl font-black text-[#FB7299]">ONLINE</span>
-                    <div className="w-3 h-3 bg-green-500 rounded-full mb-2 animate-pulse"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+             <div className="bg-[#050505] p-6 rounded-lg border border-green-900 shadow-inner">
+                <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-white">
+                   <FaRobot className="text-blue-500" /> MANGA_SCRAPER
+                </h2>
+                <div className="bg-black p-4 rounded border border-green-900 mb-6 h-32 text-xs">
+                   <p className="text-blue-400 font-bold">$ LOG_STATUS:</p>
+                   <p className="mt-2 text-white">{status}</p>
                 </div>
-                <div className="mt-6 space-y-3">
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Database</span>
-                        <span className="text-green-400">Connected</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Manga API</span>
-                        <span className="text-green-400">Ready</span>
-                    </div>
+                <div className="flex flex-col gap-4">
+                    <button onClick={runBot} disabled={isProcessing} className="w-full py-3 rounded font-bold border-2 border-blue-900 text-blue-500 hover:bg-blue-900 hover:text-white transition">
+                        {isProcessing ? 'PROCESSING...' : '>> EXECUTE_BOT <<'}
+                    </button>
+                    <button onClick={wipeDatabase} disabled={isProcessing} className="w-full py-3 rounded font-bold border-2 border-red-900 text-red-700 hover:bg-red-900 hover:text-white transition">
+                        {isProcessing ? 'PROCESSING...' : '!! WIPE_DATABASE !!'}
+                    </button>
                 </div>
-            </div>
-        </div>
-
-        <div className="mt-10 text-center">
-            <Link href="/">
-                <button className="text-gray-600 hover:text-white transition text-sm">
-                    ← Back to Jplus Manga Home
-                </button>
-            </Link>
-        </div>
-
-      </div>
+             </div>
+             <div className="bg-[#050505] p-6 rounded-lg border border-green-900 text-sm">
+                <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-white"><FaDatabase /> SYSTEM_REPORT</h2>
+                <div className="space-y-4">
+                   <div className="flex justify-between border-b border-green-900/30 pb-2"><span>USER:</span><span className="text-white">JOSHUA_MAYOE</span></div>
+                   <div className="flex justify-between border-b border-green-900/30 pb-2"><span>MODE:</span><span className="text-white">MANGA_ONLY</span></div>
+                </div>
+             </div>
+          </div>
+       </div>
     </div>
   );
 }
