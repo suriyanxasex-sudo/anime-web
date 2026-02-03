@@ -3,31 +3,37 @@ import { useRouter } from 'next/router';
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const stored = localStorage.getItem('joshua_user');
-    if (stored) setUser(JSON.parse(stored));
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+    setLoading(false);
   }, []);
 
-  const login = (u) => {
-    setUser(u);
-    localStorage.setItem('joshua_user', JSON.stringify(u));
-    router.push('/');
+  const login = (userData) => {
+    setUser(userData);
+    localStorage.setItem('user', JSON.stringify(userData));
   };
 
+  // --- ฟังก์ชัน Logout (เพิ่มใหม่) ---
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('joshua_user');
-    router.push('/login');
+    localStorage.removeItem('user'); // ลบข้อมูลออกจากเครื่อง
+    router.push('/login'); // ดีดกลับไปหน้า Login
   };
+  // -----------------------------
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
+
 export const useAuth = () => useContext(AuthContext);

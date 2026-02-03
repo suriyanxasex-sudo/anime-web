@@ -3,9 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 export default function Register() {
   const [form, setForm] = useState({username:'', password:''});
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const [error, setError] = useState('');
   const router = useRouter();
@@ -18,7 +20,7 @@ export default function Register() {
         login(res.data.user);
         router.push('/');
       } else { setError(res.data.message); }
-    } catch { setError('เชื่อมต่อ Database ไม่ได้'); }
+    } catch { setError('เกิดข้อผิดพลาด'); }
   };
 
   return (
@@ -34,8 +36,22 @@ export default function Register() {
            <input className="w-full bg-black/50 border border-gray-500 text-white p-3 rounded-lg focus:outline-none focus:border-[#00A1D6] placeholder-gray-400" 
              placeholder="ตั้งชื่อผู้ใช้" onChange={e=>setForm({...form, username:e.target.value})} required />
            
-           <input className="w-full bg-black/50 border border-gray-500 text-white p-3 rounded-lg focus:outline-none focus:border-[#00A1D6] placeholder-gray-400" 
-             type="password" placeholder="ตั้งรหัสผ่าน" onChange={e=>setForm({...form, password:e.target.value})} required />
+           {/* ช่องรหัสผ่าน พร้อมลูกตา */}
+           <div className="relative">
+             <input 
+               className="w-full bg-black/50 border border-gray-500 text-white p-3 rounded-lg focus:outline-none focus:border-[#00A1D6] placeholder-gray-400" 
+               type={showPassword ? "text" : "password"} 
+               placeholder="ตั้งรหัสผ่าน" 
+               onChange={e=>setForm({...form, password:e.target.value})} required 
+             />
+             <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3.5 text-gray-400 hover:text-white"
+             >
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+             </button>
+           </div>
            
            <button className="w-full bg-gradient-to-r from-[#00A1D6] to-[#0076a1] text-white py-3 rounded-lg font-bold shadow-lg hover:shadow-[#00A1D6]/50 hover:scale-105 transition">
              ยืนยันการสมัคร

@@ -3,9 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { FaEye, FaEyeSlash } from 'react-icons/fa'; // เรียกไอคอนลูกตา
 
 export default function Login() {
   const [form, setForm] = useState({username:'', password:''});
+  const [showPassword, setShowPassword] = useState(false); // สถานะเปิด/ปิดตา
   const { login } = useAuth();
   const [error, setError] = useState('');
   const router = useRouter();
@@ -20,18 +22,14 @@ export default function Login() {
       } else {
         setError(res.data.message || 'รหัสผ่านผิด');
       }
-    } catch { setError('เชื่อมต่อ Server ไม่ได้ (เช็ค MONGODB_URI ใน Vercel)'); }
+    } catch { setError('เชื่อมต่อ Server ไม่ได้'); }
   };
 
   return (
-    // พื้นหลัง Unsplash (โหลดได้ชัวร์ 100%)
     <div className="min-h-screen flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1541562232579-512a21360020?q=80&w=1920&auto=format&fit=crop')] bg-cover bg-center bg-no-repeat relative">
-      
-      {/* ฟิล์มดำบังพื้นหลัง 60% */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
       
       <div className="relative z-10 bg-white/10 p-8 rounded-2xl shadow-2xl w-full max-w-sm border border-white/20 backdrop-blur-md">
-         {/* เอา Navbar ออกแล้ว ไม่มีปุ่มค้นหาแน่นอน */}
          <div className="text-center mb-6">
             <h1 className="text-4xl font-extrabold text-[#FB7299] drop-shadow-md">AnimeJosh</h1>
             <p className="text-gray-300 text-sm mt-1">ยินดีต้อนรับกลับมาครับ</p>
@@ -45,10 +43,22 @@ export default function Login() {
                placeholder="ชื่อผู้ใช้" 
                onChange={e=>setForm({...form, username:e.target.value})} />
            </div>
-           <div>
-             <input className="w-full bg-black/50 border border-gray-500 text-white p-3 rounded-lg focus:outline-none focus:border-[#FB7299] placeholder-gray-400 transition" 
-               type="password" placeholder="รหัสผ่าน" 
-               onChange={e=>setForm({...form, password:e.target.value})} />
+           
+           {/* ช่องรหัสผ่าน พร้อมลูกตา */}
+           <div className="relative">
+             <input 
+               className="w-full bg-black/50 border border-gray-500 text-white p-3 rounded-lg focus:outline-none focus:border-[#FB7299] placeholder-gray-400 transition" 
+               type={showPassword ? "text" : "password"} // เปลี่ยน Type ตามสถานะ
+               placeholder="รหัสผ่าน" 
+               onChange={e=>setForm({...form, password:e.target.value})} 
+             />
+             <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3.5 text-gray-400 hover:text-white"
+             >
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+             </button>
            </div>
            
            <button className="w-full bg-gradient-to-r from-[#FB7299] to-[#FF5D87] text-white py-3 rounded-lg font-bold shadow-lg hover:shadow-[#FB7299]/50 hover:scale-105 transition duration-200">

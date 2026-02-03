@@ -3,7 +3,7 @@ import axios from 'axios';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
-import { FaCrown, FaSearch, FaFire, FaPlay, FaUserCircle } from 'react-icons/fa';
+import { FaCrown, FaSearch, FaFire, FaPlay, FaSignOutAlt } from 'react-icons/fa'; // เพิ่ม FaSignOutAlt
 
 // Component กล่องโหลด (Skeleton)
 const SkeletonCard = () => (
@@ -22,55 +22,49 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [isAutoRunning, setIsAutoRunning] = useState(false); // สถานะบอท
+  const [isAutoRunning, setIsAutoRunning] = useState(false);
 
   const router = useRouter();
-  const { user, login, loading: authLoading } = useAuth();
+  const { user, login, logout, loading: authLoading } = useAuth(); // เรียกใช้ logout
 
   const categories = ['All', 'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy'];
 
-  // 1. เช็ค Login
+  // เช็ค Login
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
   }, [user, authLoading, router]);
 
-  // 2. โหลดข้อมูล + สั่งบอททำงานอัตโนมัติ
+  // โหลดข้อมูล + สั่งบอท
   useEffect(() => {
     if (user) {
         setLoading(true);
         axios.get('/api/animes').then(async (res) => {
-            setTopAnimes(res.data.slice(0, 5)); // เอา 5 เรื่องแรกทำ Top 10
+            setTopAnimes(res.data.slice(0, 5));
             setAnimes(res.data);
             setLoading(false);
 
-            // --- AUTO BOT TRIGGER ---
-            // ถ้า Database ว่างเปล่า ให้เรียกบอททำงานทันที
             if (res.data.length === 0) {
                 console.log("Database ว่าง! กำลังเรียกบอท...");
                 setIsAutoRunning(true);
                 try {
                     await axios.get('/api/cron/auto?key=joshua7465');
-                    window.location.reload(); // โหลดหน้าใหม่เพื่อให้หนังขึ้น
+                    window.location.reload(); 
                 } catch (err) {
                     console.error("บอททำงานพลาด:", err);
                     setIsAutoRunning(false);
                 }
             }
-            // ------------------------
         });
     }
   }, [user]);
 
-  // --- ฟังก์ชันสมัคร VIP (แก้แล้ว: ไม่เด้งหลุด) ---
+  // ฟังก์ชันสมัคร VIP
   const handleUpgrade = async () => {
     if(confirm('ยืนยันสมัคร VIP ฟรี?')) {
       try {
         const res = await axios.post('/api/user/upgrade', { username: user.username });
         if(res.data.success) {
           alert('ยินดีด้วย! คุณเป็น VIP แล้ว 💎');
-          
-          // จุดสำคัญ: รวมข้อมูล VIP ใหม่ เข้ากับข้อมูล User เดิม
-          // เพื่อไม่ให้ Token หาย (ป้องกันการเด้งไปหน้า Login)
           login({ ...user, isPremium: true }); 
         }
       } catch (err) {
@@ -79,7 +73,6 @@ export default function Home() {
     }
   }
 
-  // ระบบกรองหนัง (ค้นหา + หมวดหมู่)
   const filteredAnimes = animes.filter(a => {
     const matchesSearch = a.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || (a.category && a.category.includes(selectedCategory));
@@ -91,11 +84,10 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#18191C] text-white pb-20 font-sans">
       
-      {/* --- Header (ค้นหา + โปรไฟล์) --- */}
+      {/* --- Header --- */}
       <div className="sticky top-0 z-50 bg-[#18191C]/95 backdrop-blur-sm p-4 shadow-md">
          <div className="max-w-7xl mx-auto flex items-center gap-4">
             
-            {/* Logo */}
             <div className="text-[#FB7299] font-bold text-xl hidden md:block">AnimeJosh</div>
 
             {/* ช่องค้นหา */}
@@ -108,21 +100,34 @@ export default function Home() {
                 />
             </div>
 
-            {/* รูปโปรไฟล์ (คลิกเพื่อไปหน้า Edit Profile) */}
-            <Link href="/profile">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#FB7299] to-[#00A1D6] p-[2px] cursor-pointer hover:scale-110 transition">
-                   <div className="w-full h-full bg-[#18191C] rounded-full flex items-center justify-center font-bold overflow-hidden">
-                     {user.profilePic ? (
-                        <img src={user.profilePic} className="w-full h-full object-cover" onError={(e)=>{e.target.style.display='none'}} />
-                     ) : (
-                        <div className="text-white">{user.username[0].toUpperCase()}</div>
-                     )}
-                   </div>
-                </div>
-            </Link>
+            {/* ส่วนขวา: โปรไฟล์ + ปุ่ม Logout */}
+            <div className="flex items-center gap-3">
+                
+                {/* ปุ่ม Logout (สีแดง) */}
+                <button 
+                    onClick={logout}
+                    className="bg-[#2A2B2F] text-gray-400 hover:text-red-500 p-2 rounded-full transition"
+                    title="ออกจากระบบ"
+                >
+                    <FaSignOutAlt />
+                </button>
+
+                {/* รูปโปรไฟล์ */}
+                <Link href="/profile">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#FB7299] to-[#00A1D6] p-[2px] cursor-pointer hover:scale-110 transition">
+                       <div className="w-full h-full bg-[#18191C] rounded-full flex items-center justify-center font-bold overflow-hidden">
+                         {user.profilePic ? (
+                            <img src={user.profilePic} className="w-full h-full object-cover" onError={(e)=>{e.target.style.display='none'}} />
+                         ) : (
+                            <div className="text-white">{user.username[0].toUpperCase()}</div>
+                         )}
+                       </div>
+                    </div>
+                </Link>
+            </div>
          </div>
 
-         {/* แถบหมวดหมู่ (Category Chips) */}
+         {/* แถบหมวดหมู่ */}
          <div className="max-w-7xl mx-auto mt-4 flex gap-2 overflow-x-auto scrollbar-hide pb-2">
             {categories.map(cat => (
               <button 
@@ -142,7 +147,7 @@ export default function Home() {
 
       <div className="max-w-7xl mx-auto p-4 space-y-8">
         
-        {/* --- แจ้งเตือนบอททำงาน --- */}
+        {/* เตือนบอททำงาน */}
         {isAutoRunning && (
             <div className="bg-[#2A2B2F] border border-[#FB7299] p-6 rounded-xl text-center animate-pulse">
                 <h2 className="text-xl font-bold text-[#FB7299] mb-2">🚀 กำลังจูนสัญญาณดาวเทียม...</h2>
@@ -150,7 +155,7 @@ export default function Home() {
             </div>
         )}
 
-        {/* --- Premium Banner (แสดงเฉพาะคนยังไม่ VIP) --- */}
+        {/* Premium Banner */}
         {!user.isPremium ? (
            <div className="bg-gradient-to-r from-[#F5D020] to-[#F53803] rounded-2xl p-6 relative overflow-hidden shadow-lg hover:scale-[1.01] transition cursor-pointer" onClick={handleUpgrade}>
               <div className="relative z-10 flex justify-between items-center">
@@ -169,7 +174,7 @@ export default function Home() {
            </div>
         )}
 
-        {/* --- Top 10 Ranking (แสดงเมื่อไม่ได้ค้นหา) --- */}
+        {/* Top 10 */}
         {!searchTerm && selectedCategory === 'All' && !loading && !isAutoRunning && (
           <div>
             <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-[#FB7299]"><FaFire /> มาแรงวันนี้</h2>
@@ -191,7 +196,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* --- Main Grid --- */}
+        {/* Main Grid */}
         <div>
            <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-[#00A1D6]">
               <FaPlay /> {selectedCategory !== 'All' ? `${selectedCategory} Anime` : 'อัปเดตล่าสุด'}
