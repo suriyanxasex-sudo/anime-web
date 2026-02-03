@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
-import { FaList, FaPlayCircle, FaArrowLeft, FaHeart, FaRegHeart, FaPaperPlane } from 'react-icons/fa';
+import { FaList, FaPlayCircle, FaArrowLeft } from 'react-icons/fa';
 
 export default function Watch() {
   const router = useRouter();
@@ -12,48 +12,54 @@ export default function Watch() {
   
   const [anime, setAnime] = useState(null);
   const [currentEp, setCurrentEp] = useState(0);
-  const [videoUrl, setVideoUrl] = useState(''); // เก็บลิงก์วิดีโอตัวจริง
-  const [isLoadingVideo, setIsLoadingVideo] = useState(false);
+  const [embedUrl, setEmbedUrl] = useState(''); // ลิงก์ Player เถื่อน
+  const [loadingVideo, setLoadingVideo] = useState(false);
 
   // 1. โหลดข้อมูลหนัง
   useEffect(() => {
     if(id) {
-      axios.get(`/api/animes/${id}`).then(res => {
-          setAnime(res.data);
-      });
+      axios.get(`/api/animes/${id}`).then(res => setAnime(res.data));
     }
   }, [id]);
 
-  // 2. [ระบบ Smart Player] แปลงรหัส GOGO เป็นลิงก์ดูหนัง
+  // 2. ระบบขโมย Player (Extraction)
   useEffect(() => {
     if (anime && anime.episodes[currentEp]) {
-        const serverUrl = anime.episodes[currentEp].servers[0].url;
+        const serverData = anime.episodes[currentEp].servers[0].url;
         
-        if (serverUrl.startsWith('GOGO:')) {
-            // ถ้าเป็นรหัส GOGO ให้ไปดึงลิงก์ดูสดๆ มาเดี๋ยวนั้นเลย
-            setIsLoadingVideo(true);
-            const episodeId = serverUrl.split('GOGO:')[1];
+        if (serverData.startsWith('ID:')) {
+            setLoadingVideo(true);
+            const episodeId = serverData.split('ID:')[1];
             
+            // เรียก API ไปถามหาลิงก์ Embed จริงๆ
             axios.get(`https://api.consumet.org/anime/gogoanime/watch/${episodeId}`)
                  .then(res => {
-                     // ดึงลิงก์ Embed จาก Referer (วิธีลับ!)
-                     const embedLink = res.data.headers?.Referer; 
-                     setVideoUrl(embedLink || 'https://www.youtube.com/embed/error'); // ถ้าหาไม่เจอใส่ error ไว้
-                     setIsLoadingVideo(false);
+                     // *** จุดทีเด็ด ***
+                     // เราจะเอา headers.Referer มาใช้ เพราะนั่นคือลิงก์ Embed Player ของจริง
+                     // (เช่น https://embtaku.pro/streaming.php?id=...)
+                     const realEmbed = res.data.headers?.Referer;
+                     
+                     if (realEmbed) {
+                         setEmbedUrl(realEmbed);
+                     } else {
+                         // ถ้าไม่มี Referer ให้ลองเอา source ตัวแรก
+                         setEmbedUrl(res.data.sources[0]?.url);
+                     }
+                     setLoadingVideo(false);
                  })
-                 .catch(() => {
-                     // ถ้าเซิฟเวอร์หลักล่ม ให้ใช้ลิงก์สำรอง (Trailer)
-                     setVideoUrl('https://www.youtube.com/embed/M7lc1UVf-VE'); 
-                     setIsLoadingVideo(false);
+                 .catch(err => {
+                     console.error(err);
+                     setLoadingVideo(false);
+                     // ถ้าพังจริงๆ
                  });
         } else {
-            // ถ้าเป็นลิงก์ปกติ (YouTube) ก็เล่นเลย
-            setVideoUrl(serverUrl);
+            // เผื่อเป็นลิงก์เก่า
+            setEmbedUrl(serverData);
         }
     }
   }, [anime, currentEp]);
 
-  if(!anime) return <div className="min-h-screen bg-[#18191C] flex items-center justify-center text-white">Loading...</div>;
+  if(!anime) return <div className="min-h-screen bg-[#18191C] flex items-center justify-center text-white">กำลังโหลด...</div>;
   const activeEpisode = anime.episodes[currentEp];
 
   return (
@@ -65,26 +71,41 @@ export default function Watch() {
 
       <div className="max-w-7xl mx-auto p-4 lg:flex gap-6">
         <div className="flex-1">
-           {/* จอหนัง */}
+           {/* จอหนัง (Iframe Embed) */}
            <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-2xl relative">
-              {isLoadingVideo ? (
+              {loadingVideo ? (
                   <div className="absolute inset-0 flex items-center justify-center text-[#FB7299] animate-pulse">
-                      กำลังดึงสัญญาณดาวเทียม... (รอแป๊บ)
+                      กำลังจูนสัญญาณเถื่อน... ใจร่มๆ...
                   </div>
+              ) : embedUrl ? (
+                  <iframe 
+                    src={embedUrl} 
+                    className="w-full h-full" 
+                    frameBorder="0" 
+                    allowFullScreen 
+                    scrolling="no"
+                    // sandbox="allow-scripts allow-same-origin allow-presentation" 
+                    // ^ ถ้าเปิด Sandbox บางที Player จะเล่นไม่ได้ แต่ถ้าปิดโฆษณาอาจจะเด้ง (ลองเปิดแบบนี้ไปก่อน)
+                  ></iframe>
               ) : (
-                  <iframe src={videoUrl} className="w-full h-full" frameBorder="0" allowFullScreen allow="autoplay; encrypted-media"></iframe>
+                  <div className="absolute inset-0 flex items-center justify-center text-red-500">
+                      ไม่สามารถดึงสัญญาณภาพได้ (Source Error)
+                  </div>
               )}
            </div>
            
            <div className="mt-4 mb-8">
               <h2 className="text-xl font-bold text-[#00A1D6]">{anime.title}</h2>
+              <div className="mt-2 text-xs text-yellow-500 bg-yellow-500/10 p-2 rounded border border-yellow-500/20">
+                หมายเหตุ: เนื่องจากเราดึงสัญญาณสด ถ้ามีโฆษณาเด้งให้กดปิดเอานะครับ (เหมือนเว็บดูหนังทั่วไป)
+              </div>
               <p className="text-gray-400 text-xs mt-2">{anime.synopsis}</p>
            </div>
         </div>
 
         <div className="lg:w-80 mt-6 lg:mt-0 flex-shrink-0">
            <div className="bg-[#2A2B2F] rounded-xl p-4 h-[500px] flex flex-col">
-              <h3 className="font-bold mb-4 flex items-center gap-2 text-sm text-gray-300"><FaList /> ตอนทั้งหมด</h3>
+              <h3 className="font-bold mb-4 flex items-center gap-2 text-sm text-gray-300"><FaList /> เลือกตอน</h3>
               <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                  {anime.episodes.map((ep, index) => (
                     <div key={index} onClick={() => setCurrentEp(index)}

@@ -7,78 +7,48 @@ export default async function handler(req, res) {
   await dbConnect();
 
   try {
-    // 1. พยายามดึงจาก Gogoanime (Consumet) ก่อน เพื่อเอาลิงก์หนังจริง
-    let animeList = [];
-    try {
-        const { data } = await axios.get('https://api.consumet.org/anime/gogoanime/top-airing');
-        if (data.results && data.results.length > 0) {
-            animeList = data.results.slice(0, 5); // เอา 5 เรื่องล่าสุด
-        }
-    } catch (err) {
-        console.log('Gogoanime Error, switching to backup...');
-    }
-
-    // 2. ถ้า Gogoanime ล่ม ให้ดึงจาก Jikan (MyAnimeList) เป็นแผนสำรอง
-    if (animeList.length === 0) {
-        const { data } = await axios.get('https://api.jikan.moe/v4/top/anime?filter=airing&limit=5');
-        animeList = data.data.map(a => ({
-            id: 'backup-' + a.mal_id,
-            title: a.title,
-            image: a.images.jpg.large_image_url,
-            description: a.synopsis,
-            genres: a.genres.map(g => g.name),
-            isBackup: true // มาร์คว่าเป็นตัวสำรอง
-        }));
-    }
-
+    // ดึง Top Airing จาก Gogoanime
+    const { data } = await axios.get('https://api.consumet.org/anime/gogoanime/top-airing');
+    
     let addedCount = 0;
 
-    for (const item of animeList) {
-      const exists = await Anime.findOne({ title: item.title });
-      if (!exists) {
-        let episodes = [];
+    // เอามา 10 เรื่องเลย
+    if (data.results) {
+        for (const item of data.results.slice(0, 10)) {
+            const exists = await Anime.findOne({ title: item.title });
+            if (!exists) {
+                // ดึงข้อมูลลึกเพื่อเอารายชื่อตอน
+                try {
+                    const { data: details } = await axios.get(`https://api.consumet.org/anime/gogoanime/info/${item.id}`);
+                    
+                    if (details.episodes && details.episodes.length > 0) {
+                        const episodes = details.episodes.map(ep => ({
+                            number: ep.number,
+                            title: `ตอนที่ ${ep.number}`,
+                            servers: [{ 
+                                name: "Gogo-Stream", 
+                                // เก็บแค่ ID พอ (เช่น one-piece-episode-1000) เดี๋ยวหน้าเว็บจัดการต่อ
+                                url: `ID:${ep.id}`, 
+                                quality: "HD", 
+                                isPremium: false 
+                            }]
+                        }));
 
-        if (item.isBackup) {
-            // [แผนสำรอง] ใช้ Trailer YouTube ที่ดูได้แน่นอน 100%
-            episodes.push({
-                number: 1,
-                title: "Teaser (Official)",
-                servers: [{ name: "YouTube Trailer", url: "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1", isPremium: false }] 
-                // *หมายเหตุ: ของจริงจะเปลี่ยนลิงก์ไม่ได้อัตโนมัติถ้า API ไม่ส่งมา แต่ใส่กันไว้ก่อน
-            });
-        } else {
-            // [แผนหลัก] ดึงรายละเอียดเพื่อเอา Episode ID
-            try {
-                const { data: details } = await axios.get(`https://api.consumet.org/anime/gogoanime/info/${item.id}`);
-                
-                // เก็บ "รหัสตอน" (เช่น spy-x-family-episode-1) ใส่หน้า GOGO: เพื่อให้ Frontend รู้
-                episodes = details.episodes.map(ep => ({
-                    number: ep.number,
-                    title: `ตอนที่ ${ep.number}`,
-                    servers: [{ 
-                        name: "Server หลัก", 
-                        url: `GOGO:${ep.id}`, // <--- หัวใจสำคัญ! เก็บเป็นรหัสไว้ก่อน
-                        isPremium: false 
-                    }]
-                }));
-            } catch (e) { continue; }
+                        await Anime.create({
+                            title: details.title,
+                            imageUrl: details.image,
+                            synopsis: details.description,
+                            category: details.genres?.[0],
+                            episodes: episodes
+                        });
+                        addedCount++;
+                    }
+                } catch (e) { console.log('ข้าม ' + item.title); }
+            }
         }
-
-        if (episodes.length > 0) {
-            await Anime.create({
-                title: item.title,
-                imageUrl: item.image,
-                synopsis: item.description || 'สนุกมากต้องดู!',
-                category: item.genres?.[0] || 'Anime',
-                episodes: episodes
-            });
-            addedCount++;
-        }
-      }
     }
-    
-    res.json({ success: true, message: `อัปเดตสำเร็จ ${addedCount} เรื่อง!` });
 
+    res.json({ success: true, message: `จัดให้แล้ว ${addedCount} เรื่อง` });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
