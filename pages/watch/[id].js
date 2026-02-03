@@ -4,7 +4,7 @@ import axios from 'axios';
 import { FaArrowLeft, FaArrowRight, FaHome } from 'react-icons/fa';
 import Link from 'next/link';
 
-export default function Reader() {
+export default function MangaReader() {
   const router = useRouter();
   const { id } = router.query;
   const [manga, setManga] = useState(null);
@@ -21,56 +21,42 @@ export default function Reader() {
       setLoading(true);
       const chapterId = manga.episodes[currentCh].servers[0].url.split('ID:')[1];
       
-      // ดึงรูปภาพทั้งหมดในตอนนี้
+      // ดึงรูปภาพทั้งหมดจากตอนนี้
       axios.get(`https://api.consumet.org/manga/mangareader/read?chapterId=${chapterId}`)
            .then(res => {
              setPages(res.data);
              setLoading(false);
-             window.scrollTo(0, 0); // เลื่อนขึ้นบนสุดเมื่อเปลี่ยนตอน
-           });
+             window.scrollTo(0, 0); 
+           }).catch(() => setLoading(false));
     }
   }, [manga, currentCh]);
 
-  if(!manga) return <div className="min-h-screen bg-black text-white flex items-center justify-center">กำลังโหลด...</div>;
+  if(!manga) return <div className="min-h-screen bg-black text-white flex items-center justify-center italic animate-pulse">Joshua กำลังเตรียมหน้ากระดาษ...</div>;
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white">
-      {/* Header สั่งการ */}
-      <div className="bg-[#1f1f1f] p-4 flex justify-between items-center sticky top-0 z-50">
-        <Link href="/"><FaHome className="text-xl"/></Link>
+    <div className="min-h-screen bg-[#121212] text-white font-sans">
+      <div className="bg-[#1f1f1f] p-4 flex justify-between items-center sticky top-0 z-50 border-b border-[#333]">
+        <Link href="/"><FaHome className="text-xl text-gray-400 hover:text-[#FB7299]"/></Link>
         <div className="text-center">
-          <h1 className="text-sm font-bold truncate max-w-[200px]">{manga.title}</h1>
-          <p className="text-[#FB7299] text-xs">ตอนที่ {manga.episodes[currentCh].number}</p>
+          <h1 className="text-sm font-bold truncate max-w-[150px]">{manga.title}</h1>
+          <p className="text-[#FB7299] text-[10px]">EPISODE {manga.episodes[currentCh].number}</p>
         </div>
         <div className="flex gap-4">
-          <button disabled={currentCh === 0} onClick={() => setCurrentCh(currentCh - 1)}><FaArrowLeft/></button>
-          <button disabled={currentCh === manga.episodes.length - 1} onClick={() => setCurrentCh(currentCh + 1)}><FaArrowRight/></button>
+          <button disabled={currentCh === 0} onClick={() => setCurrentCh(currentCh - 1)} className="disabled:opacity-20"><FaArrowLeft/></button>
+          <button disabled={currentCh === manga.episodes.length - 1} onClick={() => setCurrentCh(currentCh + 1)} className="disabled:opacity-20"><FaArrowRight/></button>
         </div>
       </div>
 
-      {/* หน้าอ่านมังงะ */}
-      <div className="max-w-3xl mx-auto py-4">
+      <div className="max-w-2xl mx-auto">
         {loading ? (
-          <div className="flex justify-center p-20 text-[#FB7299] animate-bounce">กำลังโหลดหน้ากระดาษ...</div>
+          <div className="flex justify-center p-20 text-[#FB7299] animate-bounce">กำลังดึงรูปภาพ...</div>
         ) : (
-          <div className="flex flex-col gap-0">
+          <div className="flex flex-col bg-black">
             {pages.map((page, index) => (
-              <img 
-                key={index} 
-                src={page.img} 
-                alt={`Page ${index + 1}`} 
-                className="w-full h-auto"
-                loading="lazy"
-              />
+              <img key={index} src={page.img} alt={`Page ${index + 1}`} className="w-full h-auto" loading="lazy" />
             ))}
           </div>
         )}
-      </div>
-
-      {/* ปุ่มเปลี่ยนตอนด้านล่าง */}
-      <div className="p-10 flex justify-center gap-10 bg-[#1f1f1f]">
-          {currentCh > 0 && <button onClick={() => setCurrentCh(currentCh - 1)} className="bg-[#FB7299] px-6 py-2 rounded-full">ตอนก่อนหน้า</button>}
-          {currentCh < manga.episodes.length - 1 && <button onClick={() => setCurrentCh(currentCh + 1)} className="bg-[#FB7299] px-6 py-2 rounded-full">ตอนถัดไป</button>}
       </div>
     </div>
   );

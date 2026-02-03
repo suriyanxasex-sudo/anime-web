@@ -1,5 +1,5 @@
 import dbConnect from '../../../lib/mongodb';
-import Anime from '../../../models/Anime'; // ใช้ Model เดิมได้ แค่เปลี่ยนไส้ใน
+import Anime from '../../../models/Anime';
 import axios from 'axios';
 
 export default async function handler(req, res) {
@@ -7,24 +7,21 @@ export default async function handler(req, res) {
   await dbConnect();
 
   try {
-    // ดึงมังงะยอดนิยมจาก MangaReader
+    // ดึงมังงะยอดนิยม (Popular Manga)
     const { data } = await axios.get('https://api.consumet.org/manga/mangareader/popular');
     
     const results = await Promise.all(data.results.slice(0, 10).map(async (item) => {
       try {
-        // ดึงรายละเอียดตอนและรูปภาพในตอน
+        // ดึงรายละเอียดตอน
         const { data: details } = await axios.get(`https://api.consumet.org/manga/mangareader/info?id=${item.id}`);
         
         const chapters = details.chapters.map(ch => ({
           number: ch.number,
           title: ch.title || `ตอนที่ ${ch.number}`,
-          servers: [{ 
-            name: "Manga-Server", 
-            url: `ID:${ch.id}`, // เก็บ ID ตอนไว้ไปดึงรูป
-            isPremium: false 
-          }]
+          servers: [{ name: "Manga-Server", url: `ID:${ch.id}`, isPremium: false }]
         }));
 
+        // ใช้ findOneAndUpdate เพื่อ "ทับ" ของเก่าให้หายสาบสูญ
         await Anime.findOneAndUpdate(
           { title: details.title },
           {
@@ -32,7 +29,7 @@ export default async function handler(req, res) {
             imageUrl: details.image,
             synopsis: details.description,
             category: "Manga",
-            episodes: chapters // ใช้ field episodes เก็บข้อมูลตอนแทน
+            episodes: chapters 
           },
           { upsert: true, new: true }
         );
@@ -40,7 +37,7 @@ export default async function handler(req, res) {
       } catch (e) { return false; }
     }));
 
-    res.json({ success: true, message: `ดึงมังงะใหม่แล้ว ${results.filter(Boolean).length} เรื่อง` });
+    res.json({ success: true, message: `ล้างบางและลงมังงะใหม่แล้ว ${results.filter(Boolean).length} เรื่อง` });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
