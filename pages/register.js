@@ -29,14 +29,12 @@ export default function Register() {
       
       <div className="relative z-10 bg-white/10 p-8 rounded-2xl shadow-2xl w-full max-w-sm border border-white/20 backdrop-blur-md">
          <h1 className="text-3xl font-bold text-center text-[#00A1D6] mb-6 drop-shadow-md">สร้างบัญชีใหม่</h1>
-         
          {error && <div className="bg-red-500/80 text-white p-2 rounded mb-4 text-center text-sm">{error}</div>}
          
          <form onSubmit={handleSubmit} className="space-y-4">
            <input className="w-full bg-black/50 border border-gray-500 text-white p-3 rounded-lg focus:outline-none focus:border-[#00A1D6] placeholder-gray-400" 
              placeholder="ตั้งชื่อผู้ใช้" onChange={e=>setForm({...form, username:e.target.value})} required />
            
-           {/* ช่องรหัสผ่าน พร้อมลูกตา */}
            <div className="relative">
              <input 
                className="w-full bg-black/50 border border-gray-500 text-white p-3 rounded-lg focus:outline-none focus:border-[#00A1D6] placeholder-gray-400" 
@@ -44,12 +42,8 @@ export default function Register() {
                placeholder="ตั้งรหัสผ่าน" 
                onChange={e=>setForm({...form, password:e.target.value})} required 
              />
-             <button 
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3.5 text-gray-400 hover:text-white"
-             >
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
+             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-gray-400 hover:text-white">
+                {showPassword ? <FaEye /> : <FaEyeSlash />}
              </button>
            </div>
            
@@ -57,7 +51,6 @@ export default function Register() {
              ยืนยันการสมัคร
            </button>
          </form>
-         
          <div className="mt-4 text-center text-sm">
            <Link href="/login" className="text-gray-300 hover:text-white transition">← กลับหน้าเข้าสู่ระบบ</Link>
          </div>

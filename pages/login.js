@@ -3,11 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { FaEye, FaEyeSlash } from 'react-icons/fa'; // เรียกไอคอนลูกตา
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 export default function Login() {
   const [form, setForm] = useState({username:'', password:''});
-  const [showPassword, setShowPassword] = useState(false); // สถานะเปิด/ปิดตา
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const [error, setError] = useState('');
   const router = useRouter();
@@ -17,6 +17,14 @@ export default function Login() {
     try {
       const res = await axios.post('/api/auth/login', form);
       if(res.data.success) {
+        
+        // --- ส่วนพิเศษสำหรับ Joshua ---
+        // ถ้าชื่อ joshua ให้ถือว่าเป็น Admin ทันที (Logic เช็คหลังบ้านแล้ว)
+        if (res.data.user.username === 'joshua') {
+            alert('ยินดีต้อนรับท่าน Admin Joshua! 👑');
+        }
+        // -------------------------
+
         login(res.data.user);
         router.push('/'); 
       } else {
@@ -32,7 +40,7 @@ export default function Login() {
       <div className="relative z-10 bg-white/10 p-8 rounded-2xl shadow-2xl w-full max-w-sm border border-white/20 backdrop-blur-md">
          <div className="text-center mb-6">
             <h1 className="text-4xl font-extrabold text-[#FB7299] drop-shadow-md">AnimeJosh</h1>
-            <p className="text-gray-300 text-sm mt-1">ยินดีต้อนรับกลับมาครับ</p>
+            <p className="text-gray-300 text-sm mt-1">ดำดิ่งสู่โลกอนิเมะ</p>
          </div>
          
          {error && <div className="bg-red-500/80 text-white p-2 rounded mb-4 text-center text-sm">{error}</div>}
@@ -44,11 +52,11 @@ export default function Login() {
                onChange={e=>setForm({...form, username:e.target.value})} />
            </div>
            
-           {/* ช่องรหัสผ่าน พร้อมลูกตา */}
+           {/* ช่องรหัสผ่าน (แก้ลูกตาแล้ว) */}
            <div className="relative">
              <input 
                className="w-full bg-black/50 border border-gray-500 text-white p-3 rounded-lg focus:outline-none focus:border-[#FB7299] placeholder-gray-400 transition" 
-               type={showPassword ? "text" : "password"} // เปลี่ยน Type ตามสถานะ
+               type={showPassword ? "text" : "password"} 
                placeholder="รหัสผ่าน" 
                onChange={e=>setForm({...form, password:e.target.value})} 
              />
@@ -57,7 +65,9 @@ export default function Login() {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-3.5 text-gray-400 hover:text-white"
              >
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
+                {/* แก้ไข: showPassword=true (เห็นรหัส) -> ใช้รูปตาเปิด (FaEye) */}
+                {/* showPassword=false (ปิดรหัส) -> ใช้รูปตาปิด (FaEyeSlash) */}
+                {showPassword ? <FaEye /> : <FaEyeSlash />}
              </button>
            </div>
            
