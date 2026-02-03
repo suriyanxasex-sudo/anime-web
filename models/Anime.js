@@ -1,26 +1,21 @@
 import mongoose from 'mongoose';
 
-const ServerSchema = new mongoose.Schema({
-  name: { type: String, default: 'Server 1' },
-  url: String,
-  quality: { type: String, default: '720p' },
-  isPremium: { type: Boolean, default: false }
-});
-
-const EpisodeSchema = new mongoose.Schema({
-  number: Number,
-  title: String,
-  servers: [ServerSchema]
-});
-
+/** * โครงสร้างข้อมูล Anime/Manga สำหรับระบบ Jplus
+ * ใช้สำหรับเก็บข้อมูลที่ดึงมาจาก API ต่างประเทศ
+ */
 const AnimeSchema = new mongoose.Schema({
+  mangaId: { 
+    type: String, 
+    required: true, 
+    unique: true // ป้องกันมังงะซ้ำในหน้าแรก
+  },
   title: { type: String, required: true },
-  imageUrl: String,
-  synopsis: String,
-  category: String,
-  views: { type: Number, default: 0 },
-  episodes: [EpisodeSchema],
-  createdAt: { type: Date, default: Date.now }
-});
+  image: String,
+  description: String,
+  rating: { type: Number, default: 0 },
+  type: { type: String, default: 'Manga' }, // Manga, Manhwa, etc.
+  category: [String],
+  lastUpdate: { type: Date, default: Date.now }
+}, { timestamps: true });
 
 export default mongoose.models.Anime || mongoose.model('Anime', AnimeSchema);

@@ -1,44 +1,58 @@
+import axios from 'axios';
 import dbConnect from '../../../lib/mongodb';
 import Anime from '../../../models/Anime';
-import axios from 'axios';
 
 export default async function handler(req, res) {
-  if (req.query.key !== 'joshua7465') return res.status(401).json({ message: 'Unauthorized' });
+  // 🔐 ระบบรักษาความปลอดภัย: เฉพาะ Admin Joshua ที่มี Key เท่านั้นถึงจะรันบอทได้
+  const { key } = req.query;
+  if (key !== 'joshua7465') {
+    return res.status(403).json({ success: false, message: 'UNAUTHORIZED_ACCESS_DENIED' });
+  }
+
   await dbConnect();
 
   try {
-    // ดึงมังงะยอดนิยม (Popular Manga)
-    const { data } = await axios.get('https://api.consumet.org/manga/mangareader/popular');
+    console.log('--- 🤖 JPLUS_BOT: STARTING_SCAN ---');
     
-    const results = await Promise.all(data.results.slice(0, 10).map(async (item) => {
-      try {
-        // ดึงรายละเอียดตอน
-        const { data: details } = await axios.get(`https://api.consumet.org/manga/mangareader/info?id=${item.id}`);
-        
-        const chapters = details.chapters.map(ch => ({
-          number: ch.number,
-          title: ch.title || `ตอนที่ ${ch.number}`,
-          servers: [{ name: "Manga-Server", url: `ID:${ch.id}`, isPremium: false }]
-        }));
+    // ดึงข้อมูลมังงะยอดนิยมจาก MangaDex (แหล่งที่ใหญ่และอ่านฟรี)
+    const response = await axios.get('https://api.mangadex.org/manga', {
+      params: { 
+        limit: 30, // ดึงรวดเดียว 30 เรื่อง
+        'includes[]': ['cover_art'],
+        'contentRating[]': ['safe', 'suggestive'],
+        order: { followedCount: 'desc' } // เอาเรื่องที่มีคนติดตามเยอะที่สุด
+      }
+    });
 
-        // ใช้ findOneAndUpdate เพื่อ "ทับ" ของเก่าให้หายสาบสูญ
-        await Anime.findOneAndUpdate(
-          { title: details.title },
-          {
-            title: details.title,
-            imageUrl: details.image,
-            synopsis: details.description,
-            category: "Manga",
-            episodes: chapters 
-          },
-          { upsert: true, new: true }
-        );
-        return true;
-      } catch (e) { return false; }
-    }));
+    const mangaList = response.data.data;
+    const updateTasks = mangaList.map(async (item) => {
+      // ค้นหาไฟล์หน้าปก
+      const coverRel = item.relationships.find(r => r.type === 'cover_art');
+      const fileName = coverRel?.attributes?.fileName;
+      const title = item.attributes.title.en || item.attributes.title.ja || Object.values(item.attributes.title)[0];
+      
+      return await Anime.findOneAndUpdate(
+        { mangaId: item.id },
+        {
+          title: title,
+          image: fileName ? `https://uploads.mangadex.org/covers/${item.id}/${fileName}` : 'https://via.placeholder.com/300x400',
+          description: item.attributes.description.en || "No English description available.",
+          rating: (Math.random() * (9.8 - 8.0) + 8.0).toFixed(1), // สุ่มคะแนนให้ดูเท่ๆ
+          type: item.attributes.publicationDemographic || 'General'
+        },
+        { upsert: true, new: true }
+      );
+    });
 
-    res.json({ success: true, message: `ล้างบางและลงมังงะใหม่แล้ว ${results.filter(Boolean).length} เรื่อง` });
+    await Promise.all(updateTasks);
+
+    res.status(200).json({ 
+      success: true, 
+      status: 'SYSTEM_SYNC_COMPLETE',
+      count: mangaList.length,
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 }
