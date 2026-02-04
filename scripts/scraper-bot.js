@@ -13,45 +13,31 @@ async function run() {
   if (!process.env.MONGODB_URI) { console.error("Missing MONGODB_URI"); process.exit(1); }
   try {
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log("--- JPLUS_CLEAN_SYNC_STARTING ---");
+    console.log("--- JPLUS_SYSTEM_WIPE_AND_SYNC ---");
 
-    // ข้อมูลชุดใหม่ ใช้รูปจาก Unsplash/Pinterest ที่ Direct Link ชัวร์ๆ
+    // ล้างขยะเก่าที่รูปไม่ขึ้นทิ้งให้เกลี้ยง
+    await Manga.deleteMany({}); 
+
     const targets = [
       { 
-        title: "Oshino Ko Premium", 
-        imageUrl: "https://images.unsplash.com/photo-1618336753974-aae8e04506aa?q=80&w=1000&auto=format&fit=crop", 
+        title: "Oshi no Ko [PROXIED]", 
+        imageUrl: "https://mangadex.org/covers/9593a324-4061-455b-9f9f-09919f96b26c/b0a455a5-9989-498c-843e-329486c91a78.jpg", 
         isPremium: true,
         chapters: [{ 
           title: "Chapter 1", 
           content: [
-            "https://images.unsplash.com/photo-1614583225154-5feaba0bd421?q=80&w=1000",
-            "https://images.unsplash.com/photo-1578632738980-43314a7c462e?q=80&w=1000"
-          ] 
-        }]
-      },
-      { 
-        title: "Valkyrie Special", 
-        imageUrl: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=1000&auto=format&fit=crop", 
-        isPremium: false,
-        chapters: [{ 
-          title: "Chapter 1", 
-          content: [
-            "https://images.unsplash.com/photo-1541562232579-512a21359920?q=80&w=1000",
-            "https://images.unsplash.com/photo-1580477310901-22801c48e53b?q=80&w=1000"
+            "https://uploads.mangadex.org/data/7b320392095f32b123/1-image.png",
+            "https://uploads.mangadex.org/data/7b320392095f32b123/2-image.png"
           ] 
         }]
       }
     ];
 
-    // ⚡️ ล้างข้อมูลเก่าที่ "กาก" ทิ้งให้หมดก่อนลงใหม่
-    await Manga.deleteMany({}); 
-    console.log("[CLEANUP] All broken data removed.");
-
     for (const item of targets) {
       console.log(`[BOT] Deploying: ${item.title}`);
       await Manga.create(item);
     }
-    console.log("--- MISSION_COMPLETE ---");
+    console.log("--- MISSION_SUCCESS ---");
   } catch (err) { console.error("ERROR:", err.message); }
   finally { mongoose.connection.close(); process.exit(0); }
 }
