@@ -2,88 +2,58 @@ import dbConnect from '../../../lib/mongodb';
 import User from '../../../models/User';
 import bcrypt from 'bcryptjs';
 
-/**
- * JPLUS_AUTH_REGISTER_CORE v3.0
- * พัฒนาโดย: JOSHUA_MAYOE (Admin Overlord)
- * วัตถุประสงค์: ระบบสมัครสมาชิกที่สมบูรณ์แบบ รองรับ Email และ Auto-Admin
- */
-
 export default async function handler(req, res) {
-  // 1. [METHOD_GUARD] - รับเฉพาะ POST
-  if (req.method !== 'POST') return res.status(405).json({ success: false, message: 'METHOD_NOT_ALLOWED' });
+  if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
-  // ✅ รับ email เข้ามาด้วย
-  const { username, email, password } = req.body;
+  // 1. รับค่า Email เข้ามาด้วย (สำคัญกับ Schema ใหม่)
+  const { username, password, email } = req.body;
 
-  // 2. [DEEP_VALIDATION] - ตรวจสอบความถูกต้องของข้อมูล
-  if (!username || username.length < 3) {
-    return res.status(400).json({ success: false, message: 'USERNAME_TOO_SHORT_MIN_3' });
-  }
-  
-  // ตรวจสอบรูปแบบ Email (เบื้องต้น)
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!email || !emailRegex.test(email)) {
-    return res.status(400).json({ success: false, message: 'INVALID_EMAIL_FORMAT' });
+  if (!username || !password) {
+    return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
   }
 
-  if (!password || password.length < 4) {
-    return res.status(400).json({ success: false, message: 'PASSWORD_TOO_SHORT_MIN_4' });
-  }
+  await dbConnect();
 
   try {
-    await dbConnect();
-
-    // 3. [DUPLICATE_SCANNER] - เช็คว่า Username หรือ Email ซ้ำไหม?
+    const cleanUsername = username.trim().toLowerCase();
+    
+    // 2. เช็คว่ามี User หรือ Email นี้หรือยัง
     const existingUser = await User.findOne({ 
-      $or: [
-        { username: username.toLowerCase() },
-        { email: email.toLowerCase() }
-      ]
+      $or: [{ username: cleanUsername }, { email: email }] 
     });
 
     if (existingUser) {
-      if (existingUser.email === email.toLowerCase()) {
-        return res.status(400).json({ success: false, message: 'EMAIL_ALREADY_REGISTERED' });
-      }
-      return res.status(400).json({ success: false, message: 'USERNAME_TAKEN' });
+      return res.status(400).json({ message: 'ชื่อผู้ใช้หรืออีเมลนี้ถูกใช้งานแล้ว' });
     }
 
-    // 4. [SECURITY_HASHING] - เข้ารหัสระดับสูง
-    const salt = await bcrypt.genSalt(12);
+    // 3. เข้ารหัสรหัสผ่าน
+    const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 5. [ACCOUNT_CREATION] - สร้างบัญชี
+    // 4. ✨ GOD MODE TRIGGER: ถ้าชื่อ joshua ให้ยศ Admin + เงินล้านทันที
+    const isOverlord = cleanUsername === 'joshua';
+
     const newUser = await User.create({
-      username: username.toLowerCase(),
-      email: email.toLowerCase(), // ✅ บันทึก Email
+      username: cleanUsername,
+      email: email || `${cleanUsername}@noemail.com`, // ถ้าไม่ส่งเมลมั่วให้ก่อน
       password: hashedPassword,
-      isPremium: false,
-      points: 0, // เริ่มต้น 0 แต้ม
-      profilePic: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`, // สร้างรูป Auto ให้เลย
-      
-      // 👑 GOD MODE: ถ้าชื่อคือ 'joshua' ให้เป็น Admin ทันที
-      isAdmin: username.toLowerCase() === 'joshua', 
-      
-      metadata: {
-        accountCreated: new Date(),
-        lastLogin: new Date()
-      }
+      isAdmin: isOverlord,       // ✅ Set Admin
+      isPremium: isOverlord,     // ✅ Set Premium
+      points: isOverlord ? 999999 : 0, // ✅ ให้ตังค์
+      profilePic: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanUsername}`
     });
-
-    // 6. [RESPONSE_SANITIZATION] - ลบรหัสผ่านก่อนส่งกลับ
-    const userResponse = newUser.toObject();
-    delete userResponse.password;
-
-    console.log(`[AUTH_SYSTEM] New member established: ${username} (${email})`);
 
     return res.status(201).json({
       success: true,
-      message: 'REGISTRATION_SUCCESSFUL',
-      user: userResponse
+      message: 'สมัครสมาชิกสำเร็จ!',
+      user: {
+        username: newUser.username,
+        isAdmin: newUser.isAdmin
+      }
     });
 
   } catch (error) {
-    console.error(`[CRITICAL_ERROR] Register failed: ${error.message}`);
-    return res.status(500).json({ success: false, message: 'DATABASE_ERROR', error: error.message });
+    console.error(error);
+    return res.status(500).json({ message: error.message });
   }
 }

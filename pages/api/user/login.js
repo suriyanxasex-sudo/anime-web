@@ -2,73 +2,43 @@ import dbConnect from '../../../lib/mongodb';
 import User from '../../../models/User';
 import bcrypt from 'bcryptjs';
 
-/**
- * JPLUS_LOGIN_CORE v3.0 (GOD MODE)
- * พัฒนาโดย: JOSHUA_MAYOE
- * วัตถุประสงค์: ระบบล็อกอินที่ปลอดภัยที่สุด (No Hardcoded Backdoor)
- */
-
 export default async function handler(req, res) {
-  const startTime = Date.now();
-
-  // 1. [METHOD_GUARD]
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, message: 'METHOD_NOT_ALLOWED' });
-  }
-
-  await dbConnect();
+  if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
   const { username, password } = req.body;
 
-  // 2. [INPUT_VALIDATION]
-  if (!username || !password) {
-    return res.status(400).json({ success: false, message: 'MISSING_CREDENTIALS' });
-  }
-
-  const cleanUsername = username.trim().toLowerCase();
+  await dbConnect();
 
   try {
-    // 3. [DATABASE_SEARCH] - ค้นหา User จริงๆ จาก DB
-    // (Joshua ตัวจริงอยู่ใน DB แล้วจากการรัน Admin Seeder)
-    const user = await User.findOne({ username: cleanUsername });
+    // 1. ดึงข้อมูล User (ต้องใช้ .select('+password') เพราะใน Schema เราซ่อนไว้)
+    const user = await User.findOne({ username: username.toLowerCase() }).select('+password');
 
-    // ไม่เจอ User
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'USER_NOT_FOUND' });
-    }
+    if (!user) return res.status(404).json({ success: false, message: 'ไม่พบผู้ใช้งาน' });
 
-    // 4. [SECURITY_VERIFICATION] - เช็ค Password
+    // 2. เช็ครหัสผ่าน
     const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ success: false, message: 'รหัสผ่านผิด' });
 
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'INVALID_PASSWORD' });
-    }
-
-    // 5. [SESSION_UPDATE] - อัปเดตเวลาเข้าใช้งาน
-    user.lastLogin = new Date();
+    // 3. อัปเดต Last Login
+    user.metadata = { ...user.metadata, lastLogin: new Date() };
     await user.save();
 
-    const executionTime = Date.now() - startTime;
-    console.log(`[AUTH_SUCCESS] ${cleanUsername} logged in. (${executionTime}ms)`);
-
-    // 6. [RESPONSE_PAYLOAD] - ส่งข้อมูลกลับไปให้หน้าบ้าน (รวม Points และ Email)
+    // 4. 📦 PACKING DATA: ส่งข้อมูลสำคัญกลับไปหน้าเว็บ
     return res.status(200).json({
       success: true,
-      message: 'ACCESS_GRANTED',
       user: {
         _id: user._id,
         username: user.username,
-        email: user.email,          // ✅ ส่ง Email กลับไปด้วย
-        points: user.points,        // ✅ ส่งแต้มคงเหลือ (เอาไว้โชว์)
-        isAdmin: user.isAdmin,      // ✅ ส่งสถานะ Admin จริงๆ
+        email: user.email,
+        isAdmin: user.isAdmin,      // ✅ สำคัญมาก! ต้องส่งไปไม่งั้นเมนู Admin ไม่ขึ้น
         isPremium: user.isPremium,
+        points: user.points,        // ✅ ส่งแต้มไปโชว์
         profilePic: user.profilePic,
-        role: user.isAdmin ? 'admin' : 'user' // (เผื่อหน้าบ้านยังใช้ตัวแปร role อยู่)
+        favorites: user.favorites   // ✅ ส่งรายการโปรด
       }
     });
 
   } catch (error) {
-    console.error(`[LOGIN_ERROR] ${error.message}`);
-    return res.status(500).json({ success: false, message: 'SERVER_ERROR', error: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 }

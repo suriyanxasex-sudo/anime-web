@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
 
 /**
- * JPLUS_USER_SCHEMA v3.0
+ * JPLUS_USER_SCHEMA v3.5 (GOD MODE)
  * พัฒนาโดย: JOSHUA_MAYOE (Admin Overlord)
- * สถานะ: UPGRADED - Secure Defaults & Expanded Profile
+ * สถานะ: FINAL - รองรับ Admin, Premium, Favorites และระบบซื้อตอนครบวงจร
  */
 
 const UserSchema = new mongoose.Schema({
@@ -13,12 +13,14 @@ const UserSchema = new mongoose.Schema({
     required: [true, 'Please provide a username'], 
     unique: true,
     trim: true,
+    lowercase: true, // ✅ บังคับตัวเล็กหมด กันปัญหา Login ไม่เจอ
     maxlength: [20, 'Username cannot be more than 20 characters']
   },
   email: {
     type: String,
-    required: [true, 'Please provide an email'],
+    // required: true, <--- (แนะนำให้เปิด ถ้าจะเอาจริง)
     unique: true,
+    sparse: true, // อนุญาตให้ null ซ้ำกันได้ (สำหรับ ID เก่าที่ไม่มีเมล)
     match: [
       /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 
       'Please add a valid email'
@@ -27,18 +29,23 @@ const UserSchema = new mongoose.Schema({
   password: { 
     type: String, 
     required: [true, 'Please provide a password'],
-    select: false // ซ่อนรหัสผ่านเวลาดึงข้อมูล (Security)
+    // select: false // ⚠️ ปิดไว้ก่อนดีกว่าครับ เดี๋ยว Script แก้ Admin จะหา Password ไม่เจอ
   },
   profilePic: {
     type: String,
-    default: '' // ให้ว่างไว้ เดี๋ยว Frontend ไปใส่รูป Default ให้เอง
+    default: '' 
   },
 
   // 2. Status & Roles (สถานะและบทบาท)
   role: { 
     type: String, 
     enum: ['user', 'admin'], 
-    default: 'user' // ⚡️ แก้แล้ว! สมัครใหม่ต้องเป็นแค่ User ธรรมดาก่อน
+    default: 'user' 
+  },
+  // ✅ เพิ่มตัวนี้ครับ: เช็คง่ายกว่า role เยอะ (ใช้ใน API Create Manga)
+  isAdmin: { 
+    type: Boolean, 
+    default: false 
   },
   isPremium: { 
     type: Boolean, 
@@ -48,15 +55,24 @@ const UserSchema = new mongoose.Schema({
   // 3. Economy (ระบบเศรษฐกิจ)
   points: { 
     type: Number, 
-    default: 0 // ⚡️ แก้แล้ว! เริ่มต้นที่ 0 แต้ม (อยากได้ต้องเติม)
+    default: 0 
   },
   
-  // 4. History (ประวัติการใช้งาน)
-  readingHistory: [{ 
-    mangaId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manga' },
-    lastChapter: Number,
-    readAt: { type: Date, default: Date.now }
+  // 4. Collections (คลังส่วนตัว) - ⚠️ ต้องมี ไม่งั้นหน้าเว็บพัง!
+  favorites: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Manga' 
   }],
+  unlockedContent: [{ 
+    type: mongoose.Schema.Types.ObjectId 
+    // เก็บ ID ของ Chapter ที่ซื้อแล้ว
+  }],
+
+  // 5. History & Meta
+  metadata: {
+    lastLogin: Date,
+    accountCreated: { type: Date, default: Date.now }
+  },
   
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
