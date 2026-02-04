@@ -1,55 +1,33 @@
 {
-  "name": "jplus-manga-godmode",
-  "version": "3.0.0",
+  "name": "jplus-manga",
+  "version": "0.1.0",
   "private": true,
-  "description": "JPLUS MANGA SYSTEM v3.0 (GOD MODE) - The Ultimate Streaming Platform by JOSHUA_MAYOE",
-  "author": "Joshua Mayoe <Admin Overlord>",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    
-    "// --- JPLUS TOOLS ---": "",
-    "hunter": "node scripts/hunter.js",
-    "nuke": "node scripts/wipe-db.js",
-    "clean": "rimraf .next node_modules && npm install",
-    "analyze": "cross-env ANALYZE=true next build"
+    "lint": "next lint"
   },
   "dependencies": {
-    "axios": "^1.6.7",
+    "axios": "^1.6.2",
     "bcryptjs": "^2.4.3",
-    "clsx": "^2.1.0",
-    "dotenv": "^16.4.4",
-    "framer-motion": "^11.0.3",
-    "mongoose": "^8.1.1", 
-    "mongodb": "^6.3.0",
-    "next": "14.1.0",
-    
-    "// --- CORE ENGINES ---": "",
-    "puppeteer": "^22.0.0", 
-    "sharp": "^0.33.2", 
+    "child_process": "^1.0.2",
+    "dotenv": "^16.3.1",
+    "mongoose": "^8.0.3",
+    "next": "14.0.4",
     "nprogress": "^0.2.0",
-    
-    "// --- UI LIBRARIES ---": "",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-icons": "^5.0.1",
-    "tailwind-merge": "^2.2.1"
+    "react": "^18",
+    "react-dom": "^18",
+    "react-icons": "^4.12.0"
   },
   "devDependencies": {
-    "@tailwindcss/typography": "^0.5.10",
-    "autoprefixer": "^10.4.17",
-    "cssnano": "^6.0.3",
-    "eslint": "^8.56.0",
-    "eslint-config-next": "14.1.0",
-    "postcss": "^8.4.35",
-    "postcss-import": "^16.0.0",
-    "tailwindcss": "^3.4.1",
-    "rimraf": "^5.0.5",
-    "cross-env": "^7.0.3"
-  },
-  "engines": {
-    "node": ">=18.17.0"
+    "autoprefixer": "^10.0.1",
+    "cssnano": "^6.0.2",
+    "eslint": "^8",
+    "eslint-config-next": "14.0.4",
+    "postcss": "^8",
+    "postcss-import": "^15.1.0",
+    "postcss-nesting": "^12.0.2",
+    "tailwindcss": "^3.3.0"
   }
 }
