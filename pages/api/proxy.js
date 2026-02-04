@@ -12,7 +12,7 @@ export default async function handler(req, res) {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
         'Referer': new URL(targetUrl).origin,
       },
-      timeout: 10000
+      timeout: 15000 
     });
 
     res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
@@ -20,6 +20,6 @@ export default async function handler(req, res) {
     return res.send(response.data);
   } catch (err) {
     console.error("Proxy Error:", err.message);
-    return res.status(500).send("Proxy failed to fetch image");
+    return res.status(500).send("Proxy failed");
   }
 }

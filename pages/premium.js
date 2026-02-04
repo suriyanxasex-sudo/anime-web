@@ -9,41 +9,34 @@ export default function PremiumPage() {
       try {
         const res = await axios.get('/api/user/profile');
         setUser(res.data);
-      } catch (err) { console.error("User_Fetch_Err:", err); }
+      } catch (err) { console.error(err); }
     };
     fetchUser();
   }, []);
 
   const handleUpgrade = async (plan) => {
-    if (user.points < 500) {
-      alert("แต้มไม่พอครับลูกพี่ Joshua! ไปเติมก่อน");
-      return;
-    }
+    if (user.points < 500) { alert("แต้มไม่พอครับลูกพี่!"); return; }
     try {
       const res = await axios.post('/api/user/upgrade', { plan });
       if (res.data.success) {
-        alert(`อัปเกรดเป็น ${plan} สำเร็จ!`);
+        alert("อัปเกรดสำเร็จ!");
         window.location.reload();
       }
-    } catch (err) {
-      alert("การทำรายการล้มเหลว กรุณาเช็ค API");
-    }
+    } catch (err) { alert("Error: เชื่อมต่อ Server ไม่ได้"); }
   };
 
   return (
     <div className="min-h-screen bg-black text-white p-10 flex flex-col items-center">
-      <div className="w-full max-w-xl flex justify-between items-center mb-20">
+      <div className="w-full max-w-xl flex justify-between items-center mb-10">
         <h1 className="text-3xl font-black italic text-[#FB7299]">JPLUS VIP</h1>
-        <div className="bg-[#FB7299]/20 border border-[#FB7299] px-6 py-2 rounded-full">
-          <span className="text-[#FB7299] font-black">MY_POINTS: {user.points} 💎</span>
+        <div className="border border-[#FB7299] px-6 py-2 rounded-full">
+          <span className="text-[#FB7299] font-black">POINTS: {user.points} 💎</span>
         </div>
       </div>
-      
-      <div className="bg-white/5 border border-white/10 p-10 rounded-[3rem] w-full max-w-xl text-center">
-        <h2 className="text-5xl font-black mb-4 italic uppercase">VIP_PASS</h2>
-        <p className="text-gray-500 mb-10 uppercase tracking-widest text-[10px]">UNLOCK EVERYTHING FOREVER</p>
-        <button onClick={() => handleUpgrade('VIP_PERMANENT')} className="w-full bg-[#FB7299] py-6 rounded-3xl font-black italic text-xl hover:scale-105 transition-all">
-          GET ACCESS (500 PTS)
+      <div className="bg-gray-900 p-8 rounded-3xl w-full max-w-xl text-center border border-gray-800">
+        <h2 className="text-4xl font-black mb-4 italic">PREMIUM PASS</h2>
+        <button onClick={() => handleUpgrade('VIP_LIFETIME')} className="w-full bg-[#FB7299] py-4 rounded-xl font-bold text-black text-xl hover:scale-105 transition-all">
+          BUY NOW (500 PTS)
         </button>
       </div>
     </div>
