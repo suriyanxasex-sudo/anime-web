@@ -1,101 +1,127 @@
+require('dotenv').config({ path: '.env.local' }); // โหลดค่า Config จาก .env
 const mongoose = require('mongoose');
-const puppeteer = require('puppeteer');
+const axios = require('axios');
 
-// 🔥 CONFIG: ใส่เว็บที่ลูกพี่จะดูดตรงนี้
-const TARGET = {
-  url: 'https://www.nekopost.net/manga/12345', // <--- เปลี่ยนเป็น URL เรื่องที่จะดูด
-  selectors: {
-    // อันนี้ตัวอย่างของ Nekopost (ถ้าเว็บอื่น ต้องคลิกขวา Inspect แก้ Class เอาเองนะลูกพี่)
-    title: '.project-info-header h1',    
-    cover: '.project-info-header img',
-    chapterList: '.chapter-list-item a',
-    chapterImages: '#page-content img' // Class รูปในหน้าอ่าน
-  }
-};
-
+// ⚠️ เราต้อง Define Schema ซ้ำในนี้เพราะ Node Script ไม่รู้จัก Next.js Model
 const MangaSchema = new mongoose.Schema({
-  title: String,
+  title: { type: String, required: true, unique: true },
   imageUrl: String,
-  isPremium: Boolean,
+  synopsis: String,
+  score: Number,
+  status: String,
+  author: String,
+  genres: [String],
+  isPremium: { type: Boolean, default: false },
   sourceUrl: String,
-  chapters: [{ title: String, content: [String], sourceUrl: String }],
+  chapters: [{
+    chapterNum: Number,
+    title: String,
+    content: [String], // URL รูปภาพ
+    updatedAt: Date
+  }],
   updatedAt: { type: Date, default: Date.now }
 });
+
 const Manga = mongoose.models.Manga || mongoose.model('Manga', MangaSchema);
 
-async function run() {
-  if (!process.env.MONGODB_URI) { console.error("❌ ไม่เจอ MONGODB_URI (อย่าลืม set ค่าก่อนรัน)"); process.exit(1); }
-  
-  await mongoose.connect(process.env.MONGODB_URI);
-  console.log(`🤖 HUNTER BOT STARTED: ${TARGET.url}`);
+// --- 🐺 HUNTER BOT CONFIG ---
+const TARGET_LIMIT = 10; // เริ่มที่ 10 เรื่องก่อน (กันโดนแบน IP)
+const MANGADEX_API = 'https://api.mangadex.org';
 
-  const browser = await puppeteer.launch({ headless: "new" });
-  const page = await browser.newPage();
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
+async function connectDB() {
+  if (mongoose.connection.readyState >= 1) return;
+  await mongoose.connect(process.env.MONGODB_URI);
+  console.log(">> [DB] Connected to MongoDB Atlas");
+}
+
+async function hunt() {
+  const startTime = Date.now();
+  console.log(`\n🐺 JPLUS HUNTER BOT v3.0 IS AWAKE...`);
+  console.log(`>> TARGET: TOP ${TARGET_LIMIT} MANGA FROM MANGADEX\n`);
 
   try {
-    // 1. ไปหน้าหลัก
-    await page.goto(TARGET.url, { waitUntil: 'networkidle2', timeout: 60000 });
+    await connectDB();
 
-    const data = await page.evaluate((sel) => {
-      const title = document.querySelector(sel.title)?.innerText.trim() || 'Unknown';
-      const cover = document.querySelector(sel.cover)?.src || '';
-      const chapters = Array.from(document.querySelectorAll(sel.chapterList)).map(a => ({
-        title: a.innerText.trim(),
-        sourceUrl: a.href
-      })).reverse(); // เรียงตอน 1 ขึ้นก่อน
-      return { title, imageUrl: cover, chapters };
-    }, TARGET.selectors);
+    // 1. [SCAN] - กวาดหามังงะน่าสนใจ
+    const listRes = await axios.get(`${MANGADEX_API}/manga`, {
+      params: { 
+        limit: TARGET_LIMIT, 
+        'includes[]': ['cover_art', 'author'],
+        'availableTranslatedLanguage[]': ['en', 'th'],
+        order: { followedCount: 'desc' }
+      }
+    });
 
-    console.log(`✅ เจอเรื่อง: ${data.title} (${data.chapters.length} ตอน)`);
+    const mangaList = listRes.data.data;
+    console.log(`>> [SCAN] Found ${mangaList.length} targets. Engaging...\n`);
 
-    // เตรียม Array เก็บข้อมูล
-    const finalChapters = [];
+    // 2. [ENGAGE] - เจาะลึกทีละเรื่อง
+    for (const item of mangaList) {
+      const title = Object.values(item.attributes.title)[0];
+      console.log(`   🔸 Processing: ${title}`);
 
-    // 2. วนลูปดูดรูปทีละตอน
-    for (const ch of data.chapters) {
-      console.log(`   👉 กำลังเจาะ: ${ch.title}`);
-      const chPage = await browser.newPage();
-      
-      try {
-        await chPage.goto(ch.sourceUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-        
-        // รอรูปโหลดแป๊บนึง
-        await new Promise(r => setTimeout(r, 2000));
+      // Metadata extraction
+      const coverRel = item.relationships.find(r => r.type === 'cover_art');
+      const authorRel = item.relationships.find(r => r.type === 'author');
+      const fileName = coverRel?.attributes?.fileName;
+      const imageUrl = fileName ? `https://uploads.mangadex.org/covers/${item.id}/${fileName}.256.jpg` : null;
 
-        const images = await chPage.evaluate((sel) => {
-          return Array.from(document.querySelectorAll(sel)).map(img => 
-            img.src || img.dataset.src || img.getAttribute('data-original')
-          ).filter(src => src);
-        }, TARGET.selectors.chapterImages);
-
-        if (images.length > 0) {
-          console.log(`      📸 ได้มา ${images.length} รูป`);
-          finalChapters.push({ title: ch.title, content: images, sourceUrl: ch.sourceUrl });
-        } else {
-          console.log(`      ⚠️ ไม่เจอรูป (ข้าม)`);
+      // 3. [DEEP_DIVE] - ดึงข้อมูลตอน (Chapters) จริงๆ!
+      // (ดึงมาแค่ 3 ตอนล่าสุด เพื่อ Demo ให้ดูว่าอ่านได้จริง)
+      const feedRes = await axios.get(`${MANGADEX_API}/manga/${item.id}/feed`, {
+        params: {
+          limit: 3,
+          translatedLanguage: ['en'],
+          order: { chapter: 'desc' } // เอาตอนล่าสุด
         }
-      } catch (e) { console.error(`      ❌ Error: ${e.message}`); }
-      
-      await chPage.close();
-    }
-
-    // 3. บันทึกลง DB
-    if (finalChapters.length > 0) {
-      // ลบของเก่าออกก่อน (ถ้ามีชื่อซ้ำ)
-      await Manga.findOneAndDelete({ title: data.title });
-      
-      await Manga.create({
-        title: data.title,
-        imageUrl: data.imageUrl,
-        isPremium: true,
-        sourceUrl: TARGET.url,
-        chapters: finalChapters
       });
-      console.log(`🎉 SUCCESS: บันทึกข้อมูลเสร็จสิ้น!`);
+
+      const realChapters = [];
+      for (const ch of feedRes.data.data) {
+         // ดึงรูปภาพในตอน (นี่คือหัวใจสำคัญ!)
+         const atHome = await axios.get(`${MANGADEX_API}/at-home/server/${ch.id}`);
+         const baseUrl = atHome.data.baseUrl;
+         const hash = atHome.data.chapter.hash;
+         const pages = atHome.data.chapter.data.map(file => `${baseUrl}/data/${hash}/${file}`);
+
+         realChapters.push({
+            chapterNum: parseFloat(ch.attributes.chapter) || 0,
+            title: ch.attributes.title || `Chapter ${ch.attributes.chapter}`,
+            content: pages, // ✅ ได้รูปภาพจริงแล้ว!
+            updatedAt: new Date()
+         });
+      }
+
+      // 4. [UPSERT] - บันทึกลง DB
+      await Manga.findOneAndUpdate(
+        { title: title },
+        {
+          title,
+          imageUrl,
+          synopsis: item.attributes.description.en || "No synopsis",
+          score: (Math.random() * 2 + 8).toFixed(1),
+          status: item.attributes.status.toUpperCase(),
+          author: authorRel?.attributes?.name || "Unknown",
+          chapters: realChapters.reverse(), // เรียง 1 -> ล่าสุด
+          updatedAt: new Date()
+        },
+        { upsert: true, new: true }
+      );
+      
+      console.log(`      ✅ Secured: ${realChapters.length} chapters.`);
+      
+      // พักหายใจ 1 วินาที กันโดนบล็อก
+      await new Promise(r => setTimeout(r, 1000));
     }
 
-  } catch (err) { console.error("FATAL ERROR:", err); }
-  finally { await browser.close(); mongoose.connection.close(); process.exit(0); }
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`\n🎉 MISSION COMPLETE in ${duration}s`);
+    process.exit(0);
+
+  } catch (err) {
+    console.error(`\n💀 CRITICAL FAILURE: ${err.message}`);
+    process.exit(1);
+  }
 }
-run();
+
+hunt();

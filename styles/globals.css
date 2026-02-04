@@ -1,22 +1,39 @@
+/* 1. นำเข้าฟอนต์เท่ๆ (Outfit) */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* 🌑 JPLUS_GLOBAL_OVERRIDE */
+/* 🌑 JPLUS_GLOBAL_BASE */
 @layer base {
   body {
-    /* เปลี่ยนจากสีเทาขาว #F4F5F7 เป็น Deep Black เพื่อความดุดัน */
-    @apply bg-[#0a0a0a] text-white font-sans antialiased;
+    @apply bg-[#050505] text-white font-sans antialiased;
+    font-family: 'Outfit', sans-serif; /* ใช้ฟอนต์ใหม่ */
     scroll-behavior: smooth;
+    
+    /* Cyberpunk Grid Background (ลายตารางจางๆ) */
+    background-image: 
+      linear-gradient(to right, #1a1a1a 1px, transparent 1px),
+      linear-gradient(to bottom, #1a1a1a 1px, transparent 1px);
+    background-size: 4rem 4rem;
+    background-position: center top;
   }
 
-  /* ระบบการเลือกข้อความ (Custom Selection) */
+  /* หน้ากากไล่เฉดสีดำปิดท้าย (เพื่อให้ลายตารางไม่แย่งสายตาตรงกลาง) */
+  body::before {
+    content: "";
+    @apply fixed inset-0 z-[-1] pointer-events-none;
+    background: radial-gradient(circle at center, transparent 0%, #050505 100%);
+  }
+
+  /* Selection สีชมพูสะท้อนแสง */
   ::selection {
-    @apply bg-[#FB7299]/30 text-[#FB7299];
+    @apply bg-[#FB7299]/20 text-[#FB7299];
   }
 }
 
-/* 🚀 CUSTOM_SCROLLBAR (สำหรับนักอ่านสาย Hardcore) */
+/* 🚀 CUSTOM_SCROLLBAR (Neon Gradient Edition) */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -27,52 +44,54 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2a2a2a;
+  background: linear-gradient(180deg, #333 0%, #666 50%, #333 100%);
   border-radius: 10px;
-  border: 1px solid #1a1a1a;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #FB7299; /* สีชมพูเวลาเอาเมาส์ไปวาง */
-  box-shadow: 0 0 10px rgba(251, 114, 153, 0.5);
+  background: linear-gradient(180deg, #FB7299 0%, #FF4D80 100%); /* เปลี่ยนเป็นสีชมพูตอน Hover */
+  box-shadow: 0 0 15px rgba(251, 114, 153, 0.8);
 }
 
 /* ⚡ JPLUS_UI_COMPONENTS */
 @layer components {
-  /* คลาสสำหรับการทำ Glow Effect ให้กับปุ่มหรือรูปภาพ */
+  /* Effect แสงฟุ้ง */
   .jplus-glow {
-    @apply shadow-[0_0_20px_rgba(251,114,153,0.15)] hover:shadow-[0_0_30px_rgba(251,114,153,0.3)] transition-all duration-500;
+    @apply shadow-[0_0_20px_rgba(251,114,153,0.15)] hover:shadow-[0_0_35px_rgba(251,114,153,0.4)] transition-all duration-500;
   }
 
-  /* แถบโหลดด้านบนเวลาเปลี่ยนหน้า */
-  .top-loader {
-    @apply fixed top-0 left-0 h-[2px] bg-gradient-to-r from-[#FB7299] to-[#00A1D6] z-[9999] animate-pulse;
+  /* Glassmorphism Panel (กระจกฝ้า) */
+  .glass-panel {
+    @apply bg-black/40 backdrop-blur-xl border border-white/10;
+  }
+  
+  /* Text Gradient (ตัวหนังสือไล่สี) */
+  .text-gradient-primary {
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-[#FB7299] to-[#FF4D80];
   }
 }
 
-/* 🪄 ANIMATION_SYSTEM (มหาโค้ดสำหรับการเคลื่อนไหว) */
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
-}
-
-.animate-shake {
-  animation: shake 0.2s ease-in-out 0s 2;
-}
-
+/* 🪄 ANIMATIONS */
 @keyframes float {
   0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+  50% { transform: translateY(-8px); }
   100% { transform: translateY(0px); }
 }
 
 .animate-float {
-  animation: float 3s ease-in-out infinite;
+  animation: float 4s ease-in-out infinite;
 }
 
-/* 📖 READER_SPECIFIC_STYLE (ปรับหน้าอ่านมังงะให้เนียนตา) */
+/* 📥 NPROGRESS (หลอดโหลดเว็บด้านบน) */
+/* (ถ้าลูกพี่ใช้ Nextjs Progressbar มันจะมาแก้ตรงนี้) */
+#nprogress .bar {
+  background: linear-gradient(90deg, #FB7299, #00A1D6) !important;
+  height: 3px !important;
+  box-shadow: 0 0 10px #FB7299, 0 0 5px #FB7299;
+}
+
+/* 📖 MANGA_READER_OPTIMIZATION */
 .manga-page-container img {
-  @apply mx-auto block max-w-full h-auto select-none pointer-events-none;
+  @apply mx-auto block max-w-full h-auto select-none pointer-events-none shadow-2xl;
   -webkit-user-drag: none;
 }

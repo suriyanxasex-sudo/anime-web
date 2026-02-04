@@ -1,30 +1,60 @@
-const mongoose = require('mongoose');
+import dbConnect from '../../../lib/mongodb';
+import Manga from '../../../models/Manga';
+import User from '../../../models/User';
 
-// Schema (Copy ให้ตรงกัน)
-const MangaSchema = new mongoose.Schema({
-  title: String,
-  imageUrl: String,
-  isPremium: Boolean,
-  sourceUrl: String,
-  chapters: [{ title: String, content: [String], sourceUrl: String }],
-  updatedAt: { type: Date, default: Date.now }
-});
-const Manga = mongoose.models.Manga || mongoose.model('Manga', MangaSchema);
+/**
+ * JPLUS_DOOMSDAY_PROTOCOL v3.0
+ * พัฒนาโดย: JOSHUA_MAYOE
+ * วัตถุประสงค์: ล้างบางข้อมูลทั้งหมดใน Database (Warning: กู้คืนไม่ได้!)
+ */
 
-async function run() {
-  if (!process.env.MONGODB_URI) { console.error("❌ Missing MONGODB_URI"); process.exit(1); }
+export default async function handler(req, res) {
+  // 1. [METHOD_GUARD] - ต้องเป็น POST เท่านั้น
+  if (req.method !== 'POST') {
+    return res.status(405).json({ message: "METHOD_NOT_ALLOWED" });
+  }
+
+  // 2. [SECURITY_CHECK] - เช็ค Key ลับ (ต้องตรงกับที่ส่งมาจาก Dashboard)
+  const { key, target = 'manga' } = req.body;
   
+  if (key !== 'joshua7465') {
+    return res.status(403).json({ 
+      success: false, 
+      message: "ACCESS_DENIED: รหัสทำลายตัวเองไม่ถูกต้อง!" 
+    });
+  }
+
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log("--- JPLUS SYSTEM CLEANER ---");
-    console.log("⏳ กำลังล้างข้อมูลเก่าทั้งหมด...");
+    await dbConnect();
 
-    // ⚡️ คำสั่งล้างโลก: ลบทุกอย่างให้เกลี้ยง
-    await Manga.deleteMany({}); 
+    let message = "";
+    let deletedCount = 0;
 
-    console.log("✅ Database ว่างเปล่าแล้ว! พร้อมรับการดูดข้อมูลใหม่ (Ready for Hunter Bot)");
-    
-  } catch (err) { console.error("ERROR:", err.message); }
-  finally { mongoose.connection.close(); process.exit(0); }
+    // 3. [EXECUTE_PURGE] - เลือกว่าจะลบอะไร
+    if (target === 'manga' || target === 'all') {
+      const resManga = await Manga.deleteMany({});
+      deletedCount += resManga.deletedCount;
+      message += `Deleted ${resManga.deletedCount} Mangas. `;
+    }
+
+    if (target === 'users' || target === 'all') {
+      // ⚠️ ระวัง: ลบ User ทั้งหมด รวมถึง Admin ด้วย (ต้องไปรัน Seeder ใหม่ถึงจะเข้าได้)
+      const resUser = await User.deleteMany({});
+      deletedCount += resUser.deletedCount;
+      message += `Deleted ${resUser.deletedCount} Users. `;
+    }
+
+    console.log(`[DOOMSDAY_LOG] 💥 System Purge Initiated by Admin. Result: ${message}`);
+
+    return res.status(200).json({
+      success: true,
+      message: "SYSTEM_PURGED_SUCCESSFULLY",
+      details: message,
+      count: deletedCount
+    });
+
+  } catch (error) {
+    console.error("Nuke Error:", error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
 }
-run();

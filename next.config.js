@@ -1,65 +1,69 @@
 /** @type {import('next').NextConfig} */
 
 /**
- * JPLUS_CORE_CONFIGURATION v2.5
+ * JPLUS_CORE_CONFIGURATION v3.0 (GOD MODE)
  * พัฒนาโดย: JOSHUA_MAYOE (Admin Overlord)
- * วัตถุประสงค์: ปรับแต่งประสิทธิภาพการประมวลผล (Optimization) และระบบความปลอดภัยขั้นสูง
+ * สถานะ: UPGRADED - API CORS Ready & Enhanced Security
  */
 
 const nextConfig = {
-  reactStrictMode: true, // ตรวจสอบ Bug ใน Development Mode อย่างเข้มงวด
-  swcMinify: true,       // ใช้ SWC คอมไพล์โค้ดให้เร็วขึ้นและไฟล์เล็กลง
+  reactStrictMode: true, 
+  swcMinify: true,       
 
-  // 🖼️ ระบบจัดการรูปภาพ (Advanced Image Optimization)
+  // 🖼️ IMAGE_OPTIMIZATION_ENGINE
   images: {
-    // ยอมรับรูปภาพจากทุกโปรโตคอลและทุก Hostname (จำเป็นสำหรับระบบ Scraper ของลูกพี่)
+    // เปิดรับรูปภาพจากทุกทิศทั่วโลก (Universal Image Gateway)
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**', // ยอมรับทุกโดเมน (Wildcard) เพื่อดึงรูปมังงะจากแหล่งต่างๆ
+        hostname: '**',
       },
       {
         protocol: 'http',
         hostname: '**',
       }
     ],
-    // ป้องกันการโจมตีผ่านการดึงรูปภาพขนาดใหญ่เกินไป
+    // อนุญาตให้ใช้ SVG (บางเว็บใช้เป็น Icon)
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    
+    // ขนาดรูปที่รองรับ (Optimization Presets)
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
 
-  // 🛡️ ระบบความปลอดภัย (Security Headers)
+  // 🛡️ SECURITY_SHIELD_PROTOCOL
   async headers() {
     return [
       {
+        // 1. กฏเหล็กสำหรับหน้าเว็บทั่วไป
         source: '/(.*)',
         headers: [
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY', // ป้องกันการโดนเอาเว็บไปฝังใน Iframe อื่น
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff', // ป้องกันการปลอมแปลงไฟล์
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()', // ปิดการเข้าถึง Hardware ที่ไม่จำเป็น
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          }
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'X-DNS-Prefetch-Control', value: 'on' }, // ⚡️ ช่วยให้โหลดรูปจากเว็บนอกไวขึ้น
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' } // บังคับ HTTPS
         ],
       },
+      {
+        // 2. 🔓 API GATEWAY (เปิดท่อให้แอปอื่นเรียกใช้ข้อมูลได้)
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Allow-Origin', value: '*' }, // หรือใส่โดเมนเฉพาะถ้าต้องการจำกัด
+          { key: 'Access-Control-Allow-Methods', value: 'GET,DELETE,PATCH,POST,PUT' },
+          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
+        ]
+      }
     ];
   },
 
-  // 🚀 การตั้งค่าสำหรับการประมวลผลฝั่ง Server
-  poweredByHeader: false, // ซ่อนข้อมูลว่าใช้ Next.js เพื่อป้องกันบอทแสกนหาช่องโหว่
-  compress: true,         // บีบอัด Gzip/Brotli เพื่อให้ User โหลดหน้าเว็บได้ไวขึ้น
+  // 🚀 SERVER_OPTIMIZATION
+  poweredByHeader: false, // นินจาโหมด: ซ่อนว่าเราใช้ Next.js
+  compress: true,         // บีบอัดไฟล์ให้เล็กจิ๋ว โหลดปรู๊ดปร๊าด
 }
-
-
 
 module.exports = nextConfig;

@@ -1,46 +1,48 @@
 import dbConnect from '../../../lib/mongodb';
-import Manga from '../../../models/Manga'; // เปลี่ยนจาก Anime เป็น Manga ตาม Schema ใหม่ที่อัปเกรดไป
+import Manga from '../../../models/Manga';
+import User from '../../../models/User';
 
 /**
- * JPLUS_MANGA_CORE_API v2.5
- * พัฒนาโดย: JOSHUA_MAYOE (Admin Overlord)
- * วัตถุประสงค์: ระบบจัดการข้อมูลมังงะส่วนกลาง รองรับการค้นหา กรองข้อมูล และการเพิ่มข้อมูลระดับสูง
+ * JPLUS_MANGA_CORE_API v3.0 (GOD MODE)
+ * พัฒนาโดย: JOSHUA_MAYOE
+ * วัตถุประสงค์: API กลางสำหรับดึงข้อมูลมังงะ (ปรับแต่งประสิทธิภาพสูงสุด)
  */
 
 export default async function handler(req, res) {
   const startTime = Date.now();
-  await dbConnect(); // เชื่อมต่อฐานข้อมูล MongoDB Atlas
+  await dbConnect();
 
-  // --- [GET] SEARCH & FILTER PROTOCOL ---
+  // --- [GET] SEARCH & FEED PROTOCOL ---
   if (req.method === 'GET') {
     try {
       const { search, category, limit = 30, page = 1, sort = 'latest' } = req.query;
       let query = {};
       
-      // 1. Advanced Search Logic: ค้นหาจากชื่อเรื่อง (Regex Case-Insensitive)
+      // 1. Advanced Search (ค้นหา)
       if (search) {
         query.$or = [
           { title: { $regex: search, $options: 'i' } },
-          { synopsis: { $regex: search, $options: 'i' } } // ค้นหาจากเรื่องย่อด้วยเพื่อให้เจอผลลัพธ์ที่กว้างขึ้น
+          { synopsis: { $regex: search, $options: 'i' } },
+          { author: { $regex: search, $options: 'i' } } // เพิ่มค้นหาชื่อผู้แต่ง
         ];
       }
       
-      // 2. Category Filtering: กรองตามหมวดหมู่
+      // 2. Category Filter (กรอง)
       if (category && category !== 'All') {
-        query.genres = category; // ใช้ genres ตามโมเดลใหม่ที่เราแก้
+        query.genres = category;
       }
 
-      // 3. Sorting Logic: ระบบเรียงลำดับ
-      let sortQuery = { createdAt: -1 };
+      // 3. Sorting Logic (เรียงลำดับ)
+      let sortQuery = { updatedAt: -1 }; // Default: อัปเดตล่าสุด
       if (sort === 'popular') sortQuery = { score: -1 };
-      if (sort === 'oldest') sortQuery = { createdAt: 1 };
+      if (sort === 'newest') sortQuery = { createdAt: -1 };
+      if (sort === 'az') sortQuery = { title: 1 };
 
-      console.log(`[QUERY] Executing search for: "${search || 'ALL'}" in category: "${category || 'ALL'}"`);
-
-      // 4. Execution with Pagination: ดึงข้อมูลแบบแบ่งหน้าเพื่อ Performance ที่ดีที่สุด
+      // 4. Optimized Execution (ดึงข้อมูลแบบเบาหวิว)
       const skip = (parseInt(page) - 1) * parseInt(limit);
       
       const mangas = await Manga.find(query)
+        .select('-chapters.content') // ⚡️ HERO FEATURE: ไม่ดึงลิงก์รูปภาพมา (ลด Payload 99%)
         .sort(sortQuery)
         .limit(parseInt(limit))
         .skip(skip);
@@ -48,53 +50,66 @@ export default async function handler(req, res) {
       const totalItems = await Manga.countDocuments(query);
       const executionTime = Date.now() - startTime;
 
+      // Disable Cache (เพื่อให้ได้ข้อมูลสดใหม่เสมอ)
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+
       return res.status(200).json({
         success: true,
-        execution_time: `${executionTime}ms`,
-        total_results: totalItems,
-        total_pages: Math.ceil(totalItems / limit),
-        current_page: parseInt(page),
+        meta: {
+          execution_time: `${executionTime}ms`,
+          total_results: totalItems,
+          total_pages: Math.ceil(totalItems / limit),
+          current_page: parseInt(page),
+        },
         data: mangas
       });
 
     } catch (error) {
-      console.error(`[GET_ERR] ${error.message}`);
-      return res.status(500).json({ success: false, message: 'DATABASE_QUERY_FAILURE', error: error.message });
+      console.error(`[FEED_ERROR] ${error.message}`);
+      return res.status(500).json({ success: false, message: 'SERVER_ERROR', error: error.message });
     }
   } 
   
-  // --- [POST] ADMIN_UPLOAD_PROTOCOL ---
+  // --- [POST] SECURE CREATE PROTOCOL ---
   else if (req.method === 'POST') {
     try {
-      // 🔐 ระบบตรวจสอบสิทธิ์เบื้องต้น: เฉพาะ Admin Joshua เท่านั้นที่ได้รับอนุญาต
-      const { adminKey } = req.body;
-      if (adminKey !== 'joshua7465') {
-        return res.status(403).json({ 
-          success: false, 
-          message: 'ACCESS_DENIED: โปรโตคอลนี้อนุญาตเฉพาะ Admin Joshua (7465) เท่านั้น' 
-        });
+      // 🔐 รับ userId แทน adminKey
+      const { userId, title, imageUrl, isPremium, genres, synopsis } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'MISSING_IDENTITY' });
       }
 
-      // สร้างข้อมูลมังงะใหม่ (Manual Entry)
+      // ตรวจสอบสิทธิ์จาก Database จริง
+      const adminUser = await User.findById(userId);
+      if (!adminUser || !adminUser.isAdmin) {
+        return res.status(403).json({ success: false, message: 'ACCESS_DENIED: Only Overlord Joshua allowed.' });
+      }
+
+      // สร้างข้อมูล
       const newManga = await Manga.create({
-        ...req.body,
-        lastUpdated: new Date()
+        title,
+        imageUrl,
+        isPremium: isPremium || false,
+        genres: genres || [],
+        synopsis: synopsis || "No synopsis provided.",
+        chapters: [],
+        updatedAt: new Date()
       });
 
-      console.log(`[ADMIN_ACTION] Joshua manually created: ${newManga.title}`);
+      console.log(`[MANGA_FORGED] Created: ${newManga.title} by ${adminUser.username}`);
       
       return res.status(201).json({
         success: true,
-        message: 'MANUAL_ENTRY_SUCCESSFUL',
+        message: 'MANGA_CREATED',
         data: newManga
       });
 
     } catch (error) {
-      console.error(`[POST_ERR] ${error.message}`);
-      return res.status(400).json({ success: false, message: 'WRITE_FAILURE', error: error.message });
+      console.error(`[CREATE_ERROR] ${error.message}`);
+      return res.status(400).json({ success: false, error: error.message });
     }
   }
 
-  // ป้องกัน Method ที่ไม่ได้รับอนุญาต
-  return res.status(405).json({ message: `METHOD_${req.method}_NOT_ALLOWED` });
+  return res.status(405).json({ message: "METHOD_NOT_ALLOWED" });
 }

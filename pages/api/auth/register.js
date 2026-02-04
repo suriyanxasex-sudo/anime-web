@@ -3,103 +3,99 @@ import User from '../../../models/User';
 import bcrypt from 'bcryptjs';
 
 /**
- * JPLUS_REGISTRATION_PROTOCOL v2.5
+ * JPLUS_REGISTRATION_CORE v3.0 (GOD MODE)
  * พัฒนาโดย: JOSHUA_MAYOE (Admin Overlord)
- * วัตถุประสงค์: สร้างอัตลักษณ์ผู้ใช้งานใหม่พร้อมระบบความปลอดภัยระดับสูงสุด
+ * วัตถุประสงค์: ระบบสมัครสมาชิกที่สมบูรณ์แบบ รองรับ Email และ Auto-Admin
  */
 
 export default async function handler(req, res) {
   const startTime = Date.now();
 
-  // 1. ตรวจสอบ HTTP Method (Register ต้องเป็น POST เท่านั้น)
+  // 1. [METHOD_GUARD] - รับเฉพาะ POST
   if (req.method !== 'POST') {
-    return res.status(405).json({ 
-      success: false, 
-      message: `METHOD_${req.method}_DENIED: โปรโตคอลนี้รองรับเฉพาะการส่งข้อมูลแบบ POST` 
-    });
+    return res.status(405).json({ success: false, message: 'METHOD_NOT_ALLOWED' });
+  }
+
+  // ✅ รับ email เข้ามาด้วย (สำคัญมาก!)
+  const { username, email, password, profilePic } = req.body;
+
+  // 2. [DEEP_VALIDATION] - ตรวจสอบความถูกต้องของข้อมูล
+  if (!username || username.trim().length < 3) {
+    return res.status(400).json({ success: false, message: 'USERNAME_TOO_SHORT' });
   }
   
-  await dbConnect(); // เชื่อมต่อฐานข้อมูล MongoDB Atlas
+  // ตรวจสอบรูปแบบ Email (Regex Basic)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(email)) {
+    return res.status(400).json({ success: false, message: 'INVALID_EMAIL_FORMAT' });
+  }
+
+  if (!password || password.length < 6) {
+    return res.status(400).json({ success: false, message: 'PASSWORD_TOO_SHORT (Min 6 chars)' });
+  }
 
   try {
-    const { username, password, profilePic } = req.body;
-
-    // 2. ระบบตรวจสอบความถูกต้องของข้อมูล (Deep Input Validation)
-    if (!username || username.trim().length < 3) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'REG_ERROR: ชื่อผู้ใช้ต้องมีความยาวอย่างน้อย 3 ตัวอักษร' 
-      });
-    }
-
-    if (!password || password.length < 6) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'REG_ERROR: รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษรเพื่อความปลอดภัย' 
-      });
-    }
-
+    await dbConnect();
     const cleanUsername = username.trim().toLowerCase();
-    console.log(`[AUTH_SYSTEM] Processing registration for: ${cleanUsername}`);
+    const cleanEmail = email.trim().toLowerCase();
 
-    // 3. ตรวจสอบการซ้ำซ้อนของข้อมูล (Global Collision Check)
-    const existingUser = await User.findOne({ username: cleanUsername });
+    // 3. [DUPLICATE_SCANNER] - เช็คว่า Username หรือ Email ซ้ำไหม? (ใช้ $or)
+    const existingUser = await User.findOne({ 
+      $or: [
+        { username: cleanUsername },
+        { email: cleanEmail }
+      ]
+    });
+
     if (existingUser) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'CONFLICT: ชื่อผู้ใช้นี้มีอยู่ในสารบบของ Jplus แล้ว' 
-      });
+      if (existingUser.email === cleanEmail) {
+        return res.status(400).json({ success: false, message: 'EMAIL_ALREADY_REGISTERED' });
+      }
+      return res.status(400).json({ success: false, message: 'USERNAME_TAKEN' });
     }
 
-    // 4. ระบบเข้ารหัสข้อมูลลับ (Bcrypt Security Layer)
-    // ใช้ Salt 12 รอบ (ความเข้มสูง) เพื่อป้องกันการโจมตีแบบ Rainbow Table
-    console.log(`[SECURITY] Generating Cryptographic Salt...`);
+    // 4. [SECURITY_HASHING] - เข้ารหัสระดับสูง
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 5. ระบบกำหนดบทบาทอัตโนมัติ (Role Assignment Logic)
-    // ถ้าชื่อตรงกับลูกพี่ Joshua ระบบจะมอบอำนาจ Admin ให้ทันที
-    const isAdmin = cleanUsername === 'joshua';
-    
-    // 6. การสร้าง Object ผู้ใช้งานแบบละเอียด (Full Meta Construction)
+    // 5. [ACCOUNT_CREATION] - สร้างบัญชี
     const newUser = await User.create({
       username: cleanUsername,
+      email: cleanEmail, // ✅ บันทึก Email ลง DB
       password: hashedPassword,
-      isAdmin: isAdmin,
       isPremium: false,
+      points: 0, // 💰 เริ่มต้น 0 แต้ม (เตรียมพร้อมระบบซื้อตอน)
       profilePic: profilePic || `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanUsername}`,
+      
+      // 👑 GOD MODE: ถ้าชื่อคือ 'joshua' ให้เป็น Admin ทันที
+      isAdmin: cleanUsername === 'joshua', 
+      
+      unlockedContent: [], // เตรียม Array ว่างไว้เก็บตอนที่ซื้อ
       favorites: [],
+
       metadata: {
         accountCreated: new Date(),
         lastLogin: new Date(),
-        registrationIP: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
-        userAgent: req.headers['user-agent']
+        registrationIP: req.headers['x-forwarded-for'] || req.socket.remoteAddress
       }
     });
 
     const executionTime = Date.now() - startTime;
-    console.log(`[SUCCESS] New member "${cleanUsername}" registered in ${executionTime}ms`);
+    console.log(`[AUTH_SYSTEM] New member established: ${cleanUsername} (${cleanEmail}) in ${executionTime}ms`);
 
-    // 7. ส่งข้อมูลที่ปลอดภัยกลับไปยัง Client-side
+    // 6. [RESPONSE_SANITIZATION] - ลบรหัสผ่านก่อนส่งกลับ
+    const userResponse = newUser.toObject();
+    delete userResponse.password;
+
     return res.status(201).json({
       success: true,
-      message: 'ACCOUNT_CREATED_SUCCESSFULLY',
-      execution_time: `${executionTime}ms`,
-      user: {
-        _id: newUser._id,
-        username: newUser.username,
-        role: newUser.isAdmin ? 'ADMIN_OVERLORD' : 'STANDARD_MEMBER',
-        isPremium: newUser.isPremium,
-        profileImage: newUser.profilePic,
-        joinDate: newUser.metadata.accountCreated
-      }
+      message: 'REGISTRATION_SUCCESSFUL',
+      user: userResponse
     });
 
   } catch (error) {
-    console.error(`[CRITICAL_REG_FAILURE] ${error.message}`);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'CORE_SERVER_ERROR: ' + error.message 
-    });
+    console.error(`[CRITICAL_ERROR] Register failed: ${error.message}`);
+    // ดัก Error จาก Mongoose โดยตรง (เช่น Validation Error)
+    return res.status(500).json({ success: false, message: 'DATABASE_ERROR', error: error.message });
   }
 }

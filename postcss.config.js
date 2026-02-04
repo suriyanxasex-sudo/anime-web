@@ -1,26 +1,26 @@
 /**
- * JPLUS_POSTCSS_CONFIGURATION v2.5
- * พัฒนาโดย: JOSHUA_MAYOE (Admin Overlord)
- * วัตถุประสงค์: ปรับแต่งและเพิ่มประสิทธิภาพการประมวลผล CSS สำหรับ Modern Browsers
+ * JPLUS_POSTCSS_CONFIGURATION v3.0 (GOD MODE)
+ * พัฒนาโดย: JOSHUA_MAYOE
+ * สถานะ: ACTIVE & OPTIMIZED
  */
 
 module.exports = {
   plugins: {
-    // 1. รองรับการใช้ @import ในไฟล์ CSS (ทำให้แยกไฟล์สไตล์ได้เป็นระเบียบ)
+    // 1. รวมไฟล์ @import
     'postcss-import': {},
 
-    // 2. เปิดระบบ Nesting: ทำให้เขียน CSS แบบซ้อนกันได้เหมือน SASS/SCSS
+    // 2. รองรับ Nesting (เขียน CSS ซ้อนกันได้)
     'tailwindcss/nesting': {},
 
-    // 3. Tailwind CSS Core: หัวใจหลักของความสวยงามใน Jplus
+    // 3. เรียกเทพเจ้า Tailwind
     tailwindcss: {},
 
-    // 4. Autoprefixer: ใส่ Prefix ให้ CSS อัตโนมัติ (เช่น -webkit-) เพื่อให้เปิดได้ทุก Browser
+    // 4. รองรับ Browser เก่าๆ
     autoprefixer: {
       flexbox: 'no-2009',
     },
 
-    // 5. รีดไฟล์ CSS ให้เล็กลงเวลา Deploy ขึ้น Production (ถ้าอยู่ในโหมดสร้างจริง)
+    // 5. [PROD_ONLY] บีบไฟล์ให้เล็กจิ๋วเมื่อขึ้น Server จริง
     ...(process.env.NODE_ENV === 'production' ? { cssnano: { preset: 'default' } } : {}),
   },
 }

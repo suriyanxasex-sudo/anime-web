@@ -1,49 +1,42 @@
 import dbConnect from '../../../lib/mongodb';
-import Manga from '../../../models/Manga'; // อัปเกรดจาก Anime เป็น Manga ตาม Schema หลัก
+import Manga from '../../../models/Manga';
+import User from '../../../models/User';
 
 /**
- * JPLUS_ENTITY_CONTROLLER v2.5
- * พัฒนาโดย: JOSHUA_MAYOE (Admin Overlord)
- * วัตถุประสงค์: จัดการข้อมูลมังงะรายเรื่อง ทั้งการดึงข้อมูลเชิงลึก, เพิ่มยอดวิว และการทำลายข้อมูล (Delete)
+ * JPLUS_ENTITY_CONTROLLER v3.0 (GOD MODE)
+ * พัฒนาโดย: JOSHUA_MAYOE
+ * วัตถุประสงค์: จัดการข้อมูลมังงะรายตัว (ดึงข้อมูลแบบเบาหวิว & ลบแบบปลอดภัย)
  */
 
 export default async function handler(req, res) {
   const startTime = Date.now();
   const { query: { id }, method } = req;
 
-  // ตรวจสอบความถูกต้องของ ID เบื้องต้น
+  // Check ID Format
   if (!id || id.length < 24) {
-    return res.status(400).json({ success: false, message: 'INVALID_ENTITY_ID_FORMAT' });
+    return res.status(400).json({ success: false, message: 'INVALID_ID_FORMAT' });
   }
 
-  await dbConnect(); // เชื่อมต่อฐานข้อมูล MongoDB Atlas
+  await dbConnect();
 
-  // --- [GET] FETCH_DETAILED_ENTITY_PROTOCOL ---
+  // --- [GET] FETCH INFO PROTOCOL ---
   if (method === 'GET') {
     try {
-      console.log(`[ENTITY_SYNC] Fetching deep data for ID: ${id}`);
-
-      // 1. ดึงข้อมูลมังงะพร้อมรายละเอียดตอน (Chapters) ทั้งหมด
-      const manga = await Manga.findById(id);
+      // 1. [OPTIMIZED_FETCH] - ดึงข้อมูลมังงะ แต่ *ไม่เอา* รูปภาพในตอน
+      // (-chapters.content คือหัวใจสำคัญที่ทำให้โหลดไว!)
+      const manga = await Manga.findById(id)
+                               .select('-chapters.content'); 
       
       if (!manga) {
-        return res.status(404).json({ 
-          success: false, 
-          message: 'NOT_FOUND: ไม่พบข้อมูลมังงะในพิกัดที่ระบุ' 
-        });
+        return res.status(404).json({ success: false, message: 'MANGA_NOT_FOUND' });
       }
 
-      // 2. ระบบนับยอดอ่าน (Smart View Increment)
-      // ใช้ $inc เพื่อเพิ่มค่าแบบ Atomic ป้องกันข้อมูลทับซ้อนกรณีคนเข้าพร้อมกันเยอะๆ
-      await Manga.findByIdAndUpdate(id, { 
-        $inc: { views: 1 },
-        $set: { "metadata.lastAccessed": new Date() }
-      });
+      // 2. [VIEW_COUNTER] - เพิ่มยอดวิวแบบเงียบๆ (Background)
+      // (ใช้ catch เพื่อกันไม่ให้ API ล่มถ้านับวิวพลาด)
+      Manga.findByIdAndUpdate(id, { $inc: { views: 1 } }).catch(e => console.error("View Count Error:", e));
 
       const executionTime = Date.now() - startTime;
-      console.log(`[SUCCESS] Data transmitted for: ${manga.title} (${executionTime}ms)`);
 
-      // 3. ส่งข้อมูลออกไปแบบครบถ้วน (Full Payload)
       return res.status(200).json({
         success: true,
         execution_time: `${executionTime}ms`,
@@ -51,47 +44,48 @@ export default async function handler(req, res) {
       });
 
     } catch (error) {
-      console.error(`[CRITICAL_GET_ERR] ${error.message}`);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'DATABASE_FETCH_FAILURE', 
-        error: error.message 
-      });
+      console.error(`[GET_ERROR] ${error.message}`);
+      return res.status(500).json({ success: false, error: error.message });
     }
   } 
   
-  // --- [DELETE] ADMIN_TERMINATION_PROTOCOL ---
+  // --- [DELETE] SECURE TERMINATION PROTOCOL ---
   else if (method === 'DELETE') {
     try {
-      // 🔐 ระบบตรวจสอบสิทธิ์ Admin: ป้องกันการลบมั่วซั่ว
-      // ในทางปฏิบัติควรเช็คจาก Session แต่ที่นี่เราใส่ตัวดักพื้นฐานไว้ให้ลูกพี่ก่อน
-      const { adminKey } = req.body; // รับ Key จาก Request Body
-      
-      if (adminKey !== 'joshua7465') {
-        return res.status(403).json({ 
-          success: false, 
-          message: 'TERMINATION_DENIED: เฉพาะ Admin Joshua เท่านั้นที่ลบข้อมูลได้' 
-        });
+      // 🔐 รับ userId มาเช็คสิทธิ์ (ปลอดภัยกว่า adminKey)
+      // หมายเหตุ: ในการ Delete บางครั้ง Client อาจส่ง Body ไม่ได้ 
+      // แต่ในระบบ Admin Dashboard ของเรา เราใช้ Axios.delete(url, { data: { userId } }) ได้ครับ
+      const { userId } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'MISSING_IDENTITY' });
       }
 
+      // ตรวจสอบว่าเป็น Admin ตัวจริงไหม
+      const adminUser = await User.findById(userId);
+      if (!adminUser || !adminUser.isAdmin) {
+        return res.status(403).json({ success: false, message: 'ACCESS_DENIED: Only Overlord can delete.' });
+      }
+
+      // ลบจริง
       const deletedManga = await Manga.findByIdAndDelete(id);
-      
+
       if (!deletedManga) {
-        return res.status(404).json({ success: false, message: 'ENTITY_NOT_FOUND' });
+        return res.status(404).json({ success: false, message: 'TARGET_NOT_FOUND' });
       }
 
-      console.log(`[ADMIN_ACTION] Joshua has terminated entity: ${id}`);
-      
+      console.log(`[TERMINATED] Manga ID ${id} deleted by ${adminUser.username}`);
+
       return res.status(200).json({ 
         success: true, 
-        message: 'ENTITY_PERMANENTLY_REMOVED_FROM_ARCHIVE' 
+        message: 'MANGA_DELETED_PERMANENTLY' 
       });
 
     } catch (error) {
-      return res.status(500).json({ success: false, message: 'TERMINATION_FAILED', error: error.message });
+      console.error(`[DELETE_ERROR] ${error.message}`);
+      return res.status(500).json({ success: false, error: error.message });
     }
   }
 
-  // ป้องกัน Method อื่นๆ
-  return res.status(405).json({ message: `METHOD_${method}_NOT_ALLOWED` });
+  return res.status(405).json({ message: "METHOD_NOT_ALLOWED" });
 }

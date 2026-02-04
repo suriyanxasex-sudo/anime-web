@@ -1,15 +1,18 @@
 # =================================================================
-# 🛡️ JPLUS_MANGA_SECURITY_SHIELD - .gitignore v2.5
+# 🛡️ JPLUS_SECURITY_PROTOCOL - .gitignore v3.0 (GOD MODE)
+# สถานะ: UPGRADED - Anti-Leak & Bot Artifacts Protection
 # =================================================================
 
 # 1. [DEPENDENCIES] - ห้ามเอา Folder Library ขึ้นเด็ดขาด (มันหนัก)
 node_modules/
 jspm_packages/
 
-# 2. [NEXT.js_BUILD_OUTPUT] - ไฟล์ประมวลผลของ Next.js
+# 2. [NEXT.js_CORE] - ไฟล์ระบบของ Next.js
 .next/
 out/
 build/
+dist/
+next-env.d.ts
 
 # 3. [ENVIRONMENT_VARIABLES] - ⚠️ ความลับระดับสูงสุด (ห้ามพลาด!)
 # ห้ามเอาไฟล์กุญแจ Database และ API Key ขึ้น GitHub เด็ดขาด
@@ -18,8 +21,19 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+.env*.local
 
-# 4. [LOG_FILES] - ไฟล์บันทึก Error ต่างๆ
+# 4. [BOT_ARTIFACTS] - 🤖 ไฟล์ขยะจากการทำงานของ Hunter Bot
+# ป้องกันไม่ให้ Screenshot หรือ Session ที่บอทสร้างไว้หลุดขึ้นไป
+cookies.json
+session.json
+screenshots/
+*.png
+*.jpg
+*.jpeg
+*.pdf
+
+# 5. [LOG_FILES] - ไฟล์บันทึก Error ต่างๆ
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -27,7 +41,7 @@ yarn-error.log*
 logs/
 *.log
 
-# 5. [OS_GARBAGE] - ไฟล์ขยะจากระบบปฏิบัติการ
+# 6. [OS_GARBAGE] - ไฟล์ขยะจากระบบปฏิบัติการ
 .DS_Store
 .DS_Store?
 ._*
@@ -35,20 +49,23 @@ Thumbs.db
 ehthumbs.db
 desktop.ini
 
-# 6. [IDE_CONFIG] - ไฟล์การตั้งค่าของ Editor
+# 7. [IDE_CONFIG] - ไฟล์การตั้งค่าของ Editor
 .vscode/
 .idea/
 *.swp
 *.swo
 .project
 .settings/
+*.sublime-workspace
 
-# 7. [TESTING/COVERAGE] - ไฟล์จากการรัน Test
-coverage/
-.nyc_output/
-
-# 8. [VERCEL] - ข้อมูลการ Deploy (ถ้ามี)
+# 8. [VERCEL & DEPLOYMENT]
 .vercel
+.serverless/
+
+# 9. [SECURITY_KEYS] - กุญแจเข้ารหัสต่างๆ (กันเหนียว)
+*.pem
+*.key
+*.cert
 
 # =================================================================
 # END_OF_SHIELD_PROTOCOL

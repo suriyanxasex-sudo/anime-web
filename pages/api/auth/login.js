@@ -3,108 +3,79 @@ import User from '../../../models/User';
 import bcrypt from 'bcryptjs';
 
 /**
- * JPLUS_AUTHENTICATION_PROTOCOL v2.5
- * พัฒนาโดย: JOSHUA_MAYOE (Admin Overlord)
- * วัตถุประสงค์: ตรวจสอบสิทธิ์การเข้าถึงระบบ Jplus Manga+ พร้อมกลไกสิทธิพิเศษสำหรับแอดมิน
+ * JPLUS_LOGIN_CORE v3.0 (GOD MODE)
+ * พัฒนาโดย: JOSHUA_MAYOE
+ * วัตถุประสงค์: ระบบล็อกอินที่ปลอดภัยที่สุด (No Hardcoded Backdoor)
  */
 
 export default async function handler(req, res) {
   const startTime = Date.now();
 
-  // 1. ระบบดักจับ HTTP Method (บังคับ POST ตามมาตรฐานความปลอดภัย)
+  // 1. [METHOD_GUARD]
   if (req.method !== 'POST') {
-    return res.status(405).json({ 
-      success: false, 
-      message: `AUTH_FAULT: Method ${req.method} is strictly prohibited.` 
-    });
+    return res.status(405).json({ success: false, message: 'METHOD_NOT_ALLOWED' });
   }
 
-  await dbConnect(); // เชื่อมต่อ MongoDB Cluster
+  await dbConnect();
+
+  const { username, password } = req.body;
+
+  // 2. [INPUT_VALIDATION]
+  if (!username || !password) {
+    return res.status(400).json({ success: false, message: 'MISSING_CREDENTIALS' });
+  }
+
+  const cleanUsername = username.trim().toLowerCase();
 
   try {
-    const { username, password } = req.body;
+    // 3. [DATABASE_SEARCH] - ค้นหา User จริงๆ จาก DB
+    // (Joshua ตัวจริงอยู่ใน DB แล้วจากการรัน Admin Seeder)
+    const user = await User.findOne({ username: cleanUsername });
 
-    // ตรวจสอบเบื้องต้น (Input Sanitization)
-    if (!username || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'LOGIN_ERROR: กรุณาระบุ IDENTIFIER และ ACCESS_KEY ให้ครบถ้วน' 
-      });
-    }
-
-    const cleanUsername = username.trim().toLowerCase();
-    console.log(`[AUTH_REQUEST] Attempting login for identifier: ${cleanUsername}`);
-
-    // 2. ค้นหาผู้ใช้งานใน Database (ดึงรายการโปรดมาแบบเต็มเพื่อพร้อมใช้งานทันที)
-    const user = await User.findOne({ username: cleanUsername }).populate('favorites');
-
+    // ไม่เจอ User
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'IDENTITY_NOT_FOUND: ไม่พบอัตลักษณ์นี้ในสารบบของ Jplus' 
-      });
+      return res.status(401).json({ success: false, message: 'USER_NOT_FOUND' });
     }
 
-    // 3. ระบบตรวจสอบรหัสผ่าน (Dual-Verification System)
-    
-    // กฎข้อที่ 1: ตรวจสอบผ่าน Standard Bcrypt Comparison
+    // 4. [SECURITY_VERIFICATION] - เช็ค Password
     const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'INVALID_PASSWORD' });
+    }
+
+    // 5. [SESSION_UPDATE] - อัปเดตเวลาเข้าใช้งาน
+    user.lastLogin = new Date();
     
-    // กฎข้อที่ 2: ✨ JOSHUA EXCLUSIVE BACKDOOR ✨ (Override Protocol)
-    const isJoshuaBackdoor = (cleanUsername === 'joshua' && password === '7465');
-
-    if (!isMatch && !isJoshuaBackdoor) {
-      console.log(`[SECURITY_ALERT] Invalid password attempt for: ${cleanUsername}`);
-      return res.status(401).json({ 
-        success: false, 
-        message: 'ACCESS_DENIED: รหัสผ่านไม่ถูกต้องตามฐานข้อมูล' 
-      });
+    // (Optional) ถ้าเป็น Admin ให้ยืนยันสถานะอีกครั้ง (Re-assert Admin)
+    if (user.isAdmin) {
+       user.metadata = { ...user.metadata, accessLevel: 'ROOT' };
     }
-
-    // 4. ระบบสิทธิพิเศษ OVERLORD_PRIVILEGE (Auto-Sync Admin Joshua)
-    if (cleanUsername === 'joshua') {
-      console.log(`[CORE_PRIVILEGE] Admin Joshua detected. Synchronizing administrative rights...`);
-      user.role = 'admin';
-      user.isAdmin = true;
-      user.isPremium = true;
-      
-      // อัปเดต Metadata การเข้าถึงของแอดมิน
-      user.metadata = {
-        ...user.metadata,
-        lastLogin: new Date(),
-        accessLevel: 'ROOT_OVERLORD'
-      };
-      await user.save();
-    } else {
-      // บันทึกเวลาล็อกอินล่าสุดสำหรับผู้ใช้งานปกติ
-      user.metadata.lastLogin = new Date();
-      await user.save();
-    }
+    
+    await user.save();
 
     const executionTime = Date.now() - startTime;
-    console.log(`[AUTH_SUCCESS] ${cleanUsername} logged in successfully. Latency: ${executionTime}ms`);
+    console.log(`[AUTH_SUCCESS] ${cleanUsername} logged in. (${executionTime}ms)`);
 
-    // 5. ส่งคืนข้อมูลผู้ใช้งาน (Identity Response - ปิดบังรหัสผ่าน 100%)
-    return res.status(200).json({ 
-      success: true, 
-      message: 'AUTHENTICATION_SUCCESSFUL',
-      execution_time: `${executionTime}ms`,
-      user: { 
+    // 6. [RESPONSE_PAYLOAD] - ส่งข้อมูลกลับไปให้หน้าบ้าน (รวม Points และ Email)
+    return res.status(200).json({
+      success: true,
+      message: 'ACCESS_GRANTED',
+      user: {
         _id: user._id,
         username: user.username,
-        role: user.isAdmin ? 'ADMIN_OVERLORD' : 'STANDARD_MEMBER',
+        email: user.email,          // ✅ ส่ง Email กลับไปด้วย (หน้า Profile ต้องใช้)
+        points: user.points,        // ✅ ส่งแต้มคงเหลือ (หน้า Unlock ต้องใช้)
+        isAdmin: user.isAdmin,      // ✅ ส่งสถานะ Admin จริงๆ
         isPremium: user.isPremium,
-        profilePic: user.profilePic || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`,
-        favorites: user.favorites,
-        lastLogin: user.metadata.lastLogin
-      } 
+        profilePic: user.profilePic,
+        role: user.isAdmin ? 'admin' : 'user', // (เผื่อหน้าบ้านยังใช้ตัวแปร role อยู่)
+        favorites: user.favorites   // (ถ้าอยากส่งไปด้วยก็ได้)
+      }
     });
 
   } catch (error) {
-    console.error(`[CRITICAL_AUTH_ERROR] ${error.message}`);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'DATABASE_FAULT: ระบบขัดข้องขณะตรวจสอบสิทธิ์ - ' + error.message 
-    });
+    console.error(`[LOGIN_ERROR] ${error.message}`);
+    return res.status(500).json({ success: false, message: 'SERVER_ERROR', error: error.message });
   }
 }

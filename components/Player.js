@@ -1,65 +1,88 @@
 import Link from 'next/link';
-import { FaLock, FaCrown, FaShieldAlt } from 'react-icons/fa';
+import { useState } from 'react';
+import { FaLock, FaCrown, FaShieldAlt, FaPlay, FaCircleNotch } from 'react-icons/fa';
 
 /**
- * JPLUS_CONTENT_GATEKEEPER v2.5
+ * JPLUS_ULTIMATE_PLAYER v3.0
  * พัฒนาโดย: JOSHUA_MAYOE (Admin Overlord)
- * วัตถุประสงค์: ควบคุมการเข้าถึงเนื้อหาระดับพรีเมียม และสร้างแรงจูงใจในการสมัคร VIP
+ * สถานะ: UPGRADED - เพิ่ม Loading State และดีไซน์ระดับ GOD
  */
 
 export default function Player({ src, isPremium, userHasAccess }) {
-  
-  // 🚫 [RESTRICTED_ACCESS_PROTOCOL] - กรณีเนื้อหาเป็น VIP แต่ผู้ใช้ไม่มีสิทธิ์
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 🚫 [ACCESS DENIED] - หน้าจอล็อคสำหรับ VIP
   if (isPremium && !userHasAccess) {
     return (
-      <div className="w-full aspect-video bg-[#0a0a0a] border-2 border-dashed border-white/5 flex flex-col items-center justify-center text-white relative overflow-hidden rounded-[2.5rem] shadow-2xl">
+      <div className="relative w-full aspect-video rounded-3xl overflow-hidden group shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10">
         
-        {/* Visual Decor: แสงฟุ้งพื้นหลัง */}
-        <div className="absolute top-[-20%] left-[-10%] w-64 h-64 bg-[#FB7299]/10 rounded-full blur-[80px]"></div>
-        <div className="absolute bottom-[-20%] right-[-10%] w-64 h-64 bg-[#00A1D6]/5 rounded-full blur-[80px]"></div>
+        {/* Background Effect (Blured) */}
+        <div className="absolute inset-0 bg-[#0a0a0a] z-0">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-gradient-to-br from-[#FB7299]/20 via-transparent to-[#00A1D6]/20 blur-[100px] animate-pulse"></div>
+          {/* Grid Pattern */}
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+        </div>
 
-        <div className="relative z-10 text-center px-6">
-          <div className="bg-gradient-to-tr from-[#FB7299] to-[#FF5D87] w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-[#FB7299]/20 rotate-3">
-            <FaLock className="text-3xl text-white" />
+        {/* Content */}
+        <div className="relative z-10 w-full h-full flex flex-col items-center justify-center p-6 text-center backdrop-blur-sm">
+          
+          <div className="mb-6 relative">
+            <div className="absolute inset-0 bg-[#FB7299] blur-2xl opacity-40 animate-pulse"></div>
+            <div className="relative w-24 h-24 bg-gradient-to-tr from-[#FB7299] to-[#FF4D80] rounded-3xl rotate-6 flex items-center justify-center shadow-2xl shadow-[#FB7299]/30 border border-white/20">
+              <FaLock className="text-4xl text-white drop-shadow-md" />
+            </div>
           </div>
 
-          <h2 className="text-2xl font-black italic tracking-tighter uppercase mb-2">
-            Jplus <span className="text-[#FB7299]">VIP</span> Exclusive
+          <h2 className="text-3xl md:text-4xl font-black italic tracking-tighter text-white uppercase mb-2 drop-shadow-lg">
+            VIP <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FB7299] to-white">ACCESS ONLY</span>
           </h2>
           
-          <p className="text-gray-500 text-[10px] font-black tracking-[0.3em] uppercase mb-8">
-            This sector is restricted to authorized members only
+          <p className="text-gray-400 text-[10px] md:text-xs font-bold tracking-[0.4em] uppercase mb-8 border-b border-white/10 pb-4">
+            Restricted Area • Authorized Personnel Only
           </p>
 
           <Link href="/premium">
-            <button className="group relative bg-white text-black px-10 py-4 rounded-2xl font-black text-xs tracking-widest uppercase transition-all hover:bg-[#FB7299] hover:text-white hover:scale-105 active:scale-95 shadow-xl">
-              <span className="flex items-center gap-2">
-                <FaCrown className="group-hover:animate-bounce" /> Upgrade_Now (฿99)
+            <button className="relative overflow-hidden group/btn bg-white text-black pl-8 pr-10 py-4 rounded-full font-black text-sm tracking-widest uppercase transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(251,114,153,0.6)]">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#FB7299] to-[#FF4D80] opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+              <span className="relative z-10 flex items-center gap-3 group-hover/btn:text-white transition-colors">
+                <FaCrown className="text-lg animate-bounce" /> 
+                Unlock_Now <span className="text-[10px] opacity-60 ml-1"> (฿99)</span>
               </span>
             </button>
           </Link>
           
-          <p className="mt-6 text-[9px] text-gray-700 font-bold flex items-center justify-center gap-2 uppercase tracking-widest">
-            <FaShieldAlt /> Secured_By_Jplus_Shield_v2.5
-          </p>
+          <div className="mt-8 flex items-center gap-2 text-[9px] text-gray-500 font-bold uppercase tracking-widest opacity-60">
+            <FaShieldAlt /> Secured by Jplus_Gatekeeper
+          </div>
         </div>
       </div>
     );
   }
 
-  // ✅ [AUTHORIZED_ACCESS_PROTOCOL] - กรณีได้รับอนุญาตให้เข้าถึง
+  // ✅ [ACCESS GRANTED] - เครื่องเล่น
   return (
-    <div className="relative w-full aspect-video group">
+    <div className="relative w-full aspect-video group rounded-3xl overflow-hidden bg-black border border-white/5 shadow-2xl">
+      
+      {/* Loading Spinner (โชว์ตอนกำลังโหลด iframe) */}
+      {isLoading && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-0">
+          <FaCircleNotch className="text-4xl text-[#FB7299] animate-spin mb-4" />
+          <p className="text-[#FB7299] text-xs font-black animate-pulse tracking-widest">LOADING STREAM...</p>
+        </div>
+      )}
+
+      {/* Main Player */}
       <iframe 
         src={src} 
-        className="w-full h-full rounded-[2rem] border border-white/5 shadow-2xl bg-black" 
+        className={`relative z-10 w-full h-full transition-opacity duration-700 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
         allowFullScreen 
         frameBorder="0"
+        onLoad={() => setIsLoading(false)} // โหลดเสร็จค่อยโชว์
         title="Jplus_Stream_Core"
       ></iframe>
       
-      {/* Overlay ตกแต่งขอบตอนเอาเมาส์วาง */}
-      <div className="absolute inset-0 border-2 border-[#FB7299]/0 group-hover:border-[#FB7299]/20 transition-all duration-700 rounded-[2rem] pointer-events-none"></div>
+      {/* Decorative Glow on Hover */}
+      <div className="absolute inset-0 pointer-events-none border-2 border-transparent group-hover:border-[#FB7299]/30 rounded-3xl transition-all duration-500 z-20"></div>
     </div>
   );
 }

@@ -3,100 +3,72 @@ import User from '../../../models/User';
 import bcrypt from 'bcryptjs';
 
 /**
- * JPLUS_AUTHENTICATION_GATEWAY v2.5
- * พัฒนาโดย: JOSHUA_MAYOE (Admin Overlord)
- * วัตถุประสงค์: ตรวจสอบสิทธิ์การเข้าถึงอาณาจักร Jplus Manga+
+ * JPLUS_LOGIN_CORE v3.0 (GOD MODE)
+ * พัฒนาโดย: JOSHUA_MAYOE
+ * วัตถุประสงค์: ระบบล็อกอินที่ปลอดภัยที่สุด (No Hardcoded Backdoor)
  */
 
 export default async function handler(req, res) {
   const startTime = Date.now();
 
-  // 1. ตรวจสอบ HTTP Method (รับเฉพาะ POST เท่านั้นเพื่อความปลอดภัยของข้อมูล)
+  // 1. [METHOD_GUARD]
   if (req.method !== 'POST') {
-    return res.status(405).json({ 
-      success: false, 
-      message: `METHOD_${req.method}_NOT_ALLOWED: กรุณาส่งข้อมูลผ่านโปรโตคอล POST` 
-    });
+    return res.status(405).json({ success: false, message: 'METHOD_NOT_ALLOWED' });
   }
 
-  await dbConnect(); // เชื่อมต่อฐานข้อมูลหลัก
+  await dbConnect();
 
   const { username, password } = req.body;
 
-  // ตรวจสอบเบื้องต้นว่ามีการส่งค่ามาครบไหม
+  // 2. [INPUT_VALIDATION]
   if (!username || !password) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'IDENTITY_ERROR: กรุณาระบุชื่อผู้ใช้และรหัสผ่าน' 
-    });
+    return res.status(400).json({ success: false, message: 'MISSING_CREDENTIALS' });
   }
 
   const cleanUsername = username.trim().toLowerCase();
 
   try {
-    // 👑 [CRITICAL_BYPASS] JOSHUA_EXCLUSIVE_BACKDOOR
-    // ระบบช่องทางพิเศษสำหรับลูกพี่ Joshua เท่านั้น
-    if (cleanUsername === 'joshua' && password === '7465') {
-      console.log(`[CORE_AUTH] Admin Joshua has entered the system via Overlord Access Key.`);
-      return res.status(200).json({
-        success: true,
-        message: 'OVERLORD_ACCESS_GRANTED',
-        user: { 
-          username: 'joshua', 
-          role: 'admin', 
-          isPremium: true,
-          accessLevel: 'ROOT' 
-        }
-      });
-    }
-
-    // 🔍 [DATABASE_SCAN] ระบบค้นหา User ปกติในฐานข้อมูล
-    // ดึงข้อมูล User ขึ้นมาเพื่อทำการเปรียบเทียบรหัสผ่านที่ถูกเข้ารหัสไว้
+    // 3. [DATABASE_SEARCH] - ค้นหา User จริงๆ จาก DB
+    // (Joshua ตัวจริงอยู่ใน DB แล้วจากการรัน Admin Seeder)
     const user = await User.findOne({ username: cleanUsername });
 
+    // ไม่เจอ User
     if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'AUTHENTICATION_FAILED: ไม่พบอัตลักษณ์นี้ในระบบ' 
-      });
+      return res.status(401).json({ success: false, message: 'USER_NOT_FOUND' });
     }
 
-    // 🔐 [SECURITY_CHECK] ตรวจสอบรหัสผ่านด้วยการถอดรหัส (Bcrypt Compare)
+    // 4. [SECURITY_VERIFICATION] - เช็ค Password
     const isMatch = await bcrypt.compare(password, user.password);
 
-    if (isMatch) {
-      // อัปเดต Metadata เวลาเข้าใช้งานล่าสุด
-      user.lastLogin = new Date();
-      await user.save();
-
-      const executionTime = Date.now() - startTime;
-      console.log(`[AUTH_SUCCESS] User ${cleanUsername} logged in. Latency: ${executionTime}ms`);
-
-      return res.status(200).json({
-        success: true,
-        message: 'ACCESS_AUTHORIZED',
-        execution_time: `${executionTime}ms`,
-        user: {
-          _id: user._id,
-          username: user.username,
-          role: user.isAdmin ? 'admin' : 'user',
-          isPremium: user.isPremium,
-          profilePic: user.profilePic
-        }
-      });
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'INVALID_PASSWORD' });
     }
 
-    // กรณีรหัสผ่านไม่ถูกต้อง
-    return res.status(401).json({ 
-      success: false, 
-      message: 'ACCESS_DENIED: รหัสผ่านไม่ถูกต้องตามฐานข้อมูล' 
+    // 5. [SESSION_UPDATE] - อัปเดตเวลาเข้าใช้งาน
+    user.lastLogin = new Date();
+    await user.save();
+
+    const executionTime = Date.now() - startTime;
+    console.log(`[AUTH_SUCCESS] ${cleanUsername} logged in. (${executionTime}ms)`);
+
+    // 6. [RESPONSE_PAYLOAD] - ส่งข้อมูลกลับไปให้หน้าบ้าน (รวม Points และ Email)
+    return res.status(200).json({
+      success: true,
+      message: 'ACCESS_GRANTED',
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,          // ✅ ส่ง Email กลับไปด้วย
+        points: user.points,        // ✅ ส่งแต้มคงเหลือ (เอาไว้โชว์)
+        isAdmin: user.isAdmin,      // ✅ ส่งสถานะ Admin จริงๆ
+        isPremium: user.isPremium,
+        profilePic: user.profilePic,
+        role: user.isAdmin ? 'admin' : 'user' // (เผื่อหน้าบ้านยังใช้ตัวแปร role อยู่)
+      }
     });
 
   } catch (error) {
-    console.error(`[AUTH_FATAL_ERROR] ${error.message}`);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'CORE_SERVER_ERROR: ' + error.message 
-    });
+    console.error(`[LOGIN_ERROR] ${error.message}`);
+    return res.status(500).json({ success: false, message: 'SERVER_ERROR', error: error.message });
   }
 }
