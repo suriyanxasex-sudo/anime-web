@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
 import Navbar from '../components/Navbar';
 import MangaList from '../components/MangaList';
-import Head from 'next/head'; 
+import Head from 'next/head';
+import Link from 'next/link';
 import { FaFire, FaGlobeAsia, FaLayerGroup } from 'react-icons/fa';
 
 export default function Home() {
@@ -49,6 +50,9 @@ export default function Home() {
                <p className="text-sm md:text-base font-bold text-white/90 leading-relaxed max-w-lg">
                  JPLUS DATABASE V3.0 - เข้าถึงคลังมังงะระดับโลกด้วยความเร็วแสง ระบบแปลภาษาอัตโนมัติและเซิร์ฟเวอร์ความเร็วสูงจากสิงคโปร์
                </p>
+               <Link href="/launch-plan" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-black/30 border border-white/20 hover:bg-black/45 transition-all font-black uppercase text-xs tracking-wider">
+                 Start a legal streaming business
+               </Link>
             </div>
 
             {/* Decor Icon */}
